@@ -1,39 +1,29 @@
-# ChainXim
+ # 简介
+ ChainXim是一款由XinLab开发的区块链仿真器，用于对不同网络、不同共识协议下的区块链进行仿真验证，可以通过设计网络攻击者辅助评估区块链的安全性能。目前仿真器还处于内部测试阶段。
 
-#### 介绍
-{**以下是 Gitee 平台说明，您可以替换此简介**
-Gitee 是 OSCHINA 推出的基于 Git 的代码托管平台（同时支持 SVN）。专为开发者提供稳定、高效、安全的云端软件开发协作平台
-无论是个人、团队、或是企业，都能够用 Gitee 实现代码托管、项目管理、协作开发。企业项目请看 [https://gitee.com/enterprises](https://gitee.com/enterprises)}
+# 安装 
+ **Dependency**
+ - scipy
+ - matplotlib > 3.5.1
+ - networkx > 2.8.7
+ - pandas
 
-#### 软件架构
-软件架构说明
+# 简单运行
+在test.py中调整仿真参数
+```shell
+cd <project_directory>
+python test.py
+```
+将会在Results文件夹生成仿真区块数据，包括每个矿工的区块链记录、区块链可视化矢量图、区块链攻击者日志、路由历史、网络矢量图、区块传播示意图。
 
-
-#### 安装教程
-
-1.  xxxx
-2.  xxxx
-3.  xxxx
-
-#### 使用说明
-
-1.  xxxx
-2.  xxxx
-3.  xxxx
-
-#### 参与贡献
-
-1.  Fork 本仓库
-2.  新建 Feat_xxx 分支
-3.  提交代码
-4.  新建 Pull Request
-
-
-#### 特技
-
-1.  使用 Readme\_XXX.md 来支持不同的语言，例如 Readme\_en.md, Readme\_zh.md
-2.  Gitee 官方博客 [blog.gitee.com](https://blog.gitee.com)
-3.  你可以 [https://gitee.com/explore](https://gitee.com/explore) 这个地址来了解 Gitee 上的优秀开源项目
-4.  [GVP](https://gitee.com/gvp) 全称是 Gitee 最有价值开源项目，是综合评定出的优秀开源项目
-5.  Gitee 官方提供的使用手册 [https://gitee.com/help](https://gitee.com/help)
-6.  Gitee 封面人物是一档用来展示 Gitee 会员风采的栏目 [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
+# 文件结构
+test.py: 仿真器的主程序
+Environment.py: 环境类与相关函数
+Miner.py: 矿工类与相关函数
+chain.py: 包括块头、区块、区块链的类与相关函数
+consensus.py: 抽象共识类、PoW类与相关函数
+BitcoinBackboneProtocol.py: 核心共识函数
+Network.py: 网络类，包括网络拓扑与传播相关的函数
+Attack.py: 攻击者类与相关函数
+functions.py: 包含计算哈希（SHA256）在内的一些函数
+external.py: 一些外部函数
