@@ -53,6 +53,20 @@ class Block(object):
 
         # self.blocksize_byte = int(random.uniform(0.5, 2) * 1048576)  # 单位:byte 随机 0.5~1 MB
 
+    def calculate_blockhash(self):
+        '''
+        计算区块的hash
+        return:
+            hash type:str
+        '''
+        content = self.content
+        prehash = self.blockhead.prehash
+        nonce = self.blockhead.nonce
+        # target = self.blockhead.target
+        minerid = self.blockhead.miner
+        hash = hashH([minerid, nonce, hashG([prehash, content])])  # 计算哈希
+        return hash
+    
     def printblock(self):
         print('in_rom:', id(self))
         print("blockname:", self.name)

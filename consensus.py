@@ -93,7 +93,7 @@ class PoW(Consensus):
             bctemp = Blockchain
             b_last = bctemp.LastBlock()#链中最后一个块
             height = b_last.blockhead.height
-            prehash = super().calculate_blockhash(b_last)
+            prehash = b_last.calculate_blockhash()
         currenthashtmp = hashsha256([prehash,x])    #要生成的块的哈希
         i = 0
         while i < qmax:
@@ -113,7 +113,7 @@ class PoW(Consensus):
         return (None, pow_success)
 
     def validate(self, lastblock: Block):
-        '''验证区块链链是否PoW合法\n
+        '''验证区块链是否PoW合法\n
         param:
             lastblock 要验证的区块链的最后一个区块 type:Block
         return:
@@ -124,10 +124,10 @@ class PoW(Consensus):
         chain_vali = True
         if chain_vali and lastblock:
             blocktmp = lastblock
-            ss = super().calculate_blockhash(blocktmp)
+            ss = blocktmp.calculate_blockhash()
             while chain_vali and blocktmp!=None:
                 block_vali = self.validblock(blocktmp)
-                hash=super().calculate_blockhash(blocktmp)
+                hash=blocktmp.calculate_blockhash()
                 if block_vali and int(hash, 16) == int(ss, 16):
                     ss = blocktmp.blockhead.prehash
                     blocktmp = blocktmp.last
@@ -146,7 +146,7 @@ class PoW(Consensus):
         block_vali = False
         btemp = block
         target = btemp.blockhead.target
-        hash = super().calculate_blockhash(btemp)
+        hash = btemp.calculate_blockhash()
         if int(hash, 16) >= int(target, 16):
             return block_vali
         else:
@@ -209,12 +209,12 @@ class R3V(Consensus):
             Blockchain.lastblock.blockhead.blockheadextra.setdefault("s",s)
             lastblock = Blockchain.LastBlock()
             height = lastblock.blockhead.height
-            prehash = super().calculate_blockhash(lastblock)
+            prehash = lastblock.calculate_blockhash()
         else:
             lastblock = Blockchain.LastBlock()
             s = lastblock.blockhead.blockheadextra["s"]
             height = lastblock.blockhead.height
-            prehash = super().calculate_blockhash(lastblock)
+            prehash = lastblock.calculate_blockhash()
         currenthashtmp = hashsha256([prehash,x])
         inputx = hex(int(hashH([Miner_ID,s]),16)%self.group)[2:]
         s = inputx
@@ -286,10 +286,10 @@ class R3V(Consensus):
         if lastblock.BlockHeight() != 0:
             if chain_vali and lastblock:
                 blocktmp = lastblock
-                ss = super().calculate_blockhash(blocktmp)
+                ss = blocktmp.calculate_blockhash()
                 while chain_vali and blocktmp!=None:
                     block_vali = self.validblock(blocktmp)
-                    hash=super().calculate_blockhash(blocktmp)
+                    hash=blocktmp.calculate_blockhash()
                     if block_vali and int(hash, 16) == int(ss, 16):
                         ss = blocktmp.blockhead.prehash
                         blocktmp = blocktmp.last
@@ -397,7 +397,7 @@ class VDF(Consensus):
         bctemp = Blockchain
         b_last = bctemp.LastBlock()#链中最后一个块
         height = b_last.blockhead.height
-        prehashtmp = super().calculate_blockhash(b_last)
+        prehashtmp = b_last.calculate_blockhash()
         # 每轮mine q次前都要看看现在最新的块是不是自己正在挖的
         if prehashtmp != self.blockmining_prehash:
             self.blockmining_prehash = prehashtmp
@@ -447,10 +447,10 @@ class VDF(Consensus):
         if lastblock.BlockHeight() != 0:
             if chain_vali and lastblock:
                 blocktmp = lastblock
-                ss = super().calculate_blockhash(blocktmp)
+                ss = blocktmp.calculate_blockhash()
                 while chain_vali and blocktmp!=None:
                     block_vali = self.validblock(blocktmp)
-                    hash=super().calculate_blockhash(blocktmp)
+                    hash=blocktmp.calculate_blockhash()
                     if block_vali and int(hash, 16) == int(ss, 16):
                         ss = blocktmp.blockhead.prehash
                         blocktmp = blocktmp.last

@@ -3,6 +3,7 @@ from chain import Block, Chain, BlockHead
 import consensus
 from consensus import Consensus
 from functions import for_name
+from external import I
 # from external import validate
 import global_var
 ##区块链不是链表，用树结构
@@ -134,8 +135,19 @@ class Miner(object):
             else:
                 print('error')  # 验证失败没必要脱出错误
         return self.Blockchain, new_update
-
-
+    
+    def BackboneProtocol(self, round):
+        chain_update, update_index = self.maxvalid()
+        # if input contains READ:
+        # write R(Cnew) to OUTPUT() 这个output不知道干什么用的
+        self.input = I(round, self.input_tape)  # I function
+        #print("outer2",honest_miner.input)
+        newblock, mine_success = self.Mining()
+        #print("outer3",honest_miner.input)
+        if update_index or mine_success:  # Cnew != C
+            return newblock
+        else:
+            return None  #  如果没有更新 返回空告诉environment回合结束
 
 
 

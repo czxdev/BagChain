@@ -4,6 +4,7 @@
 /.settings/
 /.vscode/
 /bin/
+/Results/
 
 **/__pycache__
 

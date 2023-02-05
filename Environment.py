@@ -92,7 +92,7 @@ class Environment(object):
     #@get_time
     def exec(self, num_rounds):
         '''
-        BBP调用当前miner的mining功能
+        调用当前miner的BackboneProtocol完成mining
         当前miner用addblock功能添加上链
         之后gobal_chain用深拷贝的addchain上链
         '''
@@ -116,7 +116,7 @@ class Environment(object):
                     self.miners[i].input_tape.append(("INSERT", inputfromz))
                     ''' Attack 不提供这个操作'''
                     # run the bitcoin backbone protocol
-                    newblock = BitcoinBackboneProtocol(self.miners[i], round)
+                    newblock = self.miners[i].BackboneProtocol(round)
                     if newblock is not None:
                         self.network.access_network(newblock,self.miners[i].Miner_ID,round)
                         self.global_chain.AddChain(newblock)
