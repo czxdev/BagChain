@@ -1,7 +1,5 @@
-import copy
+'''实现Miner类'''
 from chain import Block, Chain, BlockHead
-import consensus
-from consensus import Consensus
 from functions import for_name
 from external import I
 # from external import validate
@@ -15,9 +13,9 @@ import global_var
 ##标准程序，不管什么电脑环境运行出来的都是一致的
 
 class Miner(object):
-
-   
+    '''Miner代表了网络中的一个个能够自主维护区块链的实体，执行包括接收、转发、生成区块在内的行动'''
     def __init__(self, Miner_ID, qmax, target):
+        '''初始化'''
         self.Miner_ID = Miner_ID #矿工ID
         self.isAdversary = False
         self.qmax = qmax
@@ -37,7 +35,6 @@ class Miner(object):
         self.otherchain = Chain()
         self.processing_delay=0    #处理时延
 
-    
 
     def set_Adversary(self, isAdversary:bool):
         '''
@@ -80,8 +77,6 @@ class Miner(object):
     def sendBlock(self, to,sendblock:Block):
         for nb in self.neighbor_list:
             pass
-
-            
 
     def Mining(self):
         '''挖矿\n
@@ -136,7 +131,8 @@ class Miner(object):
                 print('error')  # 验证失败没必要脱出错误
         return self.Blockchain, new_update
     
-    def BackboneProtocol(self, round):
+    def BackboneProtocol(self, round) -> Block:
+        '''执行核心共识协议'''
         chain_update, update_index = self.maxvalid()
         # if input contains READ:
         # write R(Cnew) to OUTPUT() 这个output不知道干什么用的
@@ -159,7 +155,7 @@ if __name__ =='__main__':
     miner1.receiveBlock(9)
     print(miner1.receive_buffer)
     print(miner1.receive_tape)
-    miner1.receiveBlock(9,4,1)
+    miner1.receiveBlock(Block())
     print(miner1.receive_buffer)
     print(miner1.receive_tape)
 

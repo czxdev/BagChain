@@ -1,18 +1,17 @@
+import time
+import math
+import random
+import numpy as np
+import pandas as pd
+
 from Attack import Attack, Selfmining
 from functions import for_name
 import global_var
 from consensus import Consensus
 from chain import Block, Chain
 from miner import Miner
-import network
 from external import V, I ,R , common_prefix, chain_quality, chain_growth, printchain2txt
-from BitcoinBackboneProtocol import BitcoinBackboneProtocol
-import numpy as np
-import pandas as pd
-import random
-from network import Network
-import time
-import math
+
 
 def get_time(f):
 
@@ -25,7 +24,7 @@ def get_time(f):
     return inner
 
 class Environment(object):
-
+    '''包括了整个仿真器的一切参数和数据，驱动仿真器的其余要素完成仿真任务'''
     def __init__(self,  t, q, target,network_param,*adversary_ids):
         #environment parameters
         self.miner_num = global_var.get_miner_num()  # number of miners
@@ -47,11 +46,11 @@ class Environment(object):
         print(
             '\nParameters:','\n',
             'Miner Number: ', self.miner_num,'\n',
-            'q: ', self.qmax, '\n', 
+            'q: ', self.qmax, '\n',
             'Adversary Miners: ', adversary_ids, '\n',
             'Consensus Protocol: ', global_var.get_consensus_type(), '\n',
             'Target: ', self.target, '\n',
-            'Network Type: ', self.network.__class__.__name__, '\n', 
+            'Network Type: ', self.network.__class__.__name__, '\n',
             'Network Param: ', network_param, '\n'
         )
         self.network.set_net_param(**network_param)
@@ -72,7 +71,7 @@ class Environment(object):
         for adversary in self.adversary_mem:
             adversary.set_Adversary(True)
         return self.adversary_mem
-    
+
     def select_adversary(self,*Miner_ID):
         '''
         根据指定ID选择对手
@@ -114,12 +113,13 @@ class Environment(object):
                 #print("Miner{} is mining".format(i))
                 if not self.miners[i].isAdversary:
                     self.miners[i].input_tape.append(("INSERT", inputfromz))
-                    ''' Attack 不提供这个操作'''
+                    # Attack 不提供这个操作
                     # run the bitcoin backbone protocol
                     newblock = self.miners[i].BackboneProtocol(round)
                     if newblock is not None:
                         self.network.access_network(newblock,self.miners[i].Miner_ID,round)
-                        self.global_chain.AddChain(newblock)
+                        if not newblock.blockextra.is_miniblock: # 完整的区块要合并到全局链
+                            self.global_chain.AddChain(newblock)
                     self.miners[i].input_tape = []  # clear the input tape
                     self.miners[i].receive_tape = []  # clear the communication tape
             self.network.diffuse(round)  # diffuse(C)
@@ -130,7 +130,7 @@ class Environment(object):
         self.total_round = self.total_round + num_rounds
 
     def assess_common_prefix(self):
-        # Common Prefix Property
+        '''Assess Common Prefix Property'''
         cp = self.miners[0].Blockchain.lastblock
         for i in range(1, self.miner_num):
             if not self.miners[i].isAdversary:
@@ -142,7 +142,7 @@ class Environment(object):
                 self.cp_pdf[0, len_suffix] = self.cp_pdf[0, len_suffix] + 1
 
     def view(self):
-        # 展示一些仿真结果
+        '''展示一些仿真结果'''
         print('\n')
         miner_i = 0
         while miner_i < self.miner_num:
@@ -221,9 +221,3 @@ class Environment(object):
         print("\r{}{}  {:.5f}%  {}/{}  {:.2f} round/s  {}:{}:{}>>{}:{}:{}  Envents: "\
         .format(cplt, uncplt, percent*100, process, total, vel, time_cost.tm_hour, time_cost.tm_min, time_cost.tm_sec,\
             time_eval.tm_hour, time_eval.tm_min, time_eval.tm_sec),end="", flush=True)
-
-
-
-
-
-

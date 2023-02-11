@@ -1,8 +1,8 @@
+'''实现BlockHead、Block以及Chain类描述区块链结构'''
 import copy
-import random
+import matplotlib.pyplot as plt
 
 from functions import hashG, hashH
-import matplotlib.pyplot as plt
 import global_var
 
 
@@ -39,15 +39,54 @@ class BlockHead(object):
 
 
 class Block(object):
+    '''描述区块结构，实现区块哈希的计算'''
+    class BlockExtra:
+        '''描述blockextra中信息'''
+        def __init__(self,task_id=0, task_list=None, miniblock_hash=None, miniblock_list=None, 
+                     metric=None, is_miniblock=False, model=None, model_hash=None, 
+                     validation_hash=None, validation_list=None, validation_metric=None):
+            '''BlockExtra对象初始化'''
+            self.task_id = task_id
+            self.task_list = task_list # 对于miniblock无效
+            self.miniblock_hash = miniblock_hash
+            self.miniblock_list = miniblock_list
+            self.metric = metric
+            # 以下记录与Miniblock有关的信息
+            self.is_miniblock = is_miniblock
+            self.model_hash = model_hash # 用id(model)代替哈希
+            self.model = model
+            self.validation_hash = validation_hash
+            self.validation_list = validation_list
+            self.validation_metric = validation_metric
 
-    def __init__(self, name=None, blockhead: BlockHead = None, content=None, isadversary=False, isgenesis=False, blocksize_MB=2):
+        def __deepcopy__(self, memo):
+            cls = self.__class__
+            result = cls.__new__(cls)
+            memo[id(self)] = result
+            for k,v in self.__dict__.items():
+                if cls.__name__ != "BlockExtra" or cls.__name__ == "BlockExtra" and \
+                    k != "task_list" and k != "miniblock_list" and k != "model" and \
+                    k != "validation_list" and k != "miniblock_hash":
+                    # 需要进行深复制的数据
+                    setattr(result, k, copy.deepcopy(v, memo))
+                elif (k == "task_list" or k == "miniblock_list" or \
+                     k == "validation_list" or k == "miniblock_hash") and \
+                     cls.__name__ == "BlockExtra": # 对列表进行浅复制
+                    setattr(result, k, copy.copy(v))
+                else: # 对model引用不复制
+                    setattr(result, k, v)
+            return result
+
+
+    def __init__(self, name=None, blockhead: BlockHead = None, content=None, isadversary=False, 
+                 blockextra=BlockExtra(), isgenesis=False, blocksize_MB=2):
         self.name = name
         self.blockhead = blockhead
         self.isAdversaryBlock = isadversary
         self.content = content
         self.next = []  # 子块列表
         self.last = None  # 母块
-        self.blockextra = {}  # 其他共识协议需要用的，使用字典添加
+        self.blockextra = blockextra # 其他共识协议需要的额外信息
         self.isGenesis = isgenesis
         self.blocksize_byte = blocksize_MB * 1048576
 
@@ -59,14 +98,26 @@ class Block(object):
         return:
             hash type:str
         '''
-        content = self.content
         prehash = self.blockhead.prehash
-        nonce = self.blockhead.nonce
-        # target = self.blockhead.target
+        timestamp = self.blockhead.timestamp
         minerid = self.blockhead.miner
-        hash = hashH([minerid, nonce, hashG([prehash, content])])  # 计算哈希
-        return hash
-    
+        if self.blockextra.is_miniblock:
+            model_hash = self.blockextra.model_hash
+            valid_hash = self.blockextra.validation_hash
+            valid_metric = self.blockextra.validation_metric
+            hash_content = [minerid, timestamp, model_hash, valid_hash, valid_metric, prehash]
+        else: # 完整区块
+            content = self.content
+            miniblock_hash_list = self.blockextra.miniblock_hash
+            task_id = self.blockextra.task_id
+            metric = self.blockextra.metric
+            hash_content = [minerid, timestamp, task_id, metric]
+            hash_content.append(miniblock_hash_list)
+            hash_content.append(hashG([prehash, content]))
+
+        return hashH(hash_content)  # 计算哈希
+
+
     def printblock(self):
         print('in_rom:', id(self))
         print("blockname:", self.name)
@@ -74,7 +125,8 @@ class Block(object):
         print("content:", self.content)
         print('isAdversaryBlock:', self.isAdversaryBlock)
         print('next:', self.next)
-        print('last:', self.last, '\n')
+        print('last:', self.last)
+        print('block_extra_id',id(self.blockextra), '\n')
 
     def ReadBlockHead_list(self):
         return self.blockhead.readlist()
@@ -117,9 +169,12 @@ class Chain(object):
         height = 0
         Miner_ID = -1  # 创世区块不由任何一个矿工创建
         input = 0
-        currenthash = hashH([Miner_ID, nonce, hashG([prehash, input])])
-        self.head = Block('B0', BlockHead(prehash, currenthash, time, target, nonce, height, Miner_ID), input, False,
-                          True)
+        # currenthash = hashH([Miner_ID, nonce, hashG([prehash, input])])
+        task = global_var.get_global_task()
+        blockextra = Block.BlockExtra(None, [task])
+        self.head = Block('B0', BlockHead(prehash, None, time, target, nonce, height, Miner_ID),
+                          input, False,blockextra, True)
+        self.head.blockhead.blockhash = self.head.calculate_blockhash()
         self.head.blockhead.blockheadextra["value"] = 1  # 不加这一条 其他共识无法运行
         self.lastblock = self.head  # 指向最新区块，代表矿工认定的主链
 
@@ -462,4 +517,21 @@ if __name__ == '__main__':
     block2 = copy.deepcopy(blocknew)
     blocknew.printblock()
     block2.printblock()
-    print(Block.__name__)
+
+    print(blocknew.calculate_blockhash())
+    blocknew.blockextra.is_miniblock = True
+    print(blocknew.calculate_blockhash())
+
+    print(Block.BlockExtra.__name__)
+    print("==============")
+    task_list_test = [1,2,3,[123,431,2]]
+    model_test = [2,3,3,1]
+    blockextra_test = Block.BlockExtra(id(task_list_test), task_list_test, model=model_test)
+    blockextra_deepcopy = copy.deepcopy(blockextra_test)
+    print(id(blockextra_test.model))
+    print(id(blockextra_deepcopy.model))
+    print(id(task_list_test))
+    print(id(blockextra_test.task_list))
+    print(id(blockextra_deepcopy.task_list))
+    print(id(blockextra_test.task_list[-1]))
+    print(id(blockextra_deepcopy.task_list[-1]))

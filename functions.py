@@ -23,15 +23,12 @@ def hashH(contentlist:list)->str:
 def hashG(contentlist:list)->str:
     return hashsha256(contentlist)
 
-
 def for_name(name):
     """
     返回并加载指定的类
     输入:name为指定类的路径 如Consensus.POW    type: str
     """
-    # class_name = Test
     class_name = name.split('.')[-1]
-    # import_module("lib.utils.test")
     file = importlib.import_module(name[:name.index("." + class_name)])
     clazz = getattr(file, class_name)
  

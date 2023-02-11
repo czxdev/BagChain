@@ -5,6 +5,7 @@
 /.vscode/
 /bin/
 /Results/
+/datasets/*
 
 **/__pycache__
 
