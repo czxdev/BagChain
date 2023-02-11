@@ -1,5 +1,6 @@
 from Environment import Environment
 import time
+import logging
 import global_var
 
 
@@ -28,6 +29,10 @@ global_var.set_network_type("network.TopologyNetwork")
 global_var.set_qmax(q)
 global_var.set_blocksize(blocksize)
 global_var.set_show_fig(False)
+
+# 配置日志文件
+logging.basicConfig(filename=global_var.get_result_path()+'/events.log',
+                    level=global_var.get_log_level(), filemode='w')
 
 network_param = {'readtype': 'coo', 'TTL': 500}               # Topology网络参数
 #                                                               # =>readtype: 读取csv文件类型, 'adj'为邻接矩阵, 'coo'为coo格式的稀疏矩阵

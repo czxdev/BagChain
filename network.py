@@ -3,6 +3,7 @@ import json
 import os
 import random
 import sys
+import logging
 from abc import ABCMeta, abstractmethod
 from math import ceil
 
@@ -16,6 +17,7 @@ import global_var
 from chain import Block, BlockHead
 from errorclasses import NetAdjError, NetMinerNumError
 
+logger = logging.getLogger(__name__)
 
 class Network(metaclass=ABCMeta):
     """网络抽象基类"""
@@ -331,7 +333,8 @@ class TopologyNetwork(Network):
         block_packet = self.BlockPacketTpNet(newblock, minerid, round, self.TTL, self)
         self.network_tape.append(block_packet)
         self.miners[minerid].receiveBlock(newblock)  # 这一条主要是防止adversary集团发出区块的代表，自己的链上没有该区块
-        print('access network ', 'miner:', minerid, newblock.name, end='', flush=True) # 加[end='']是打印进度条的时候防止换行出错哈 by CY
+        # print('access network ', 'miner:', minerid, newblock.name, end='', flush=True) # 加[end='']是打印进度条的时候防止换行出错哈 by CY
+        logger.info("access network miner:%d %s at round %d", minerid, newblock.name, round)
 
 
     def normal_forward(self, from_miner, current_miner, block_packet: BlockPacketTpNet, round):

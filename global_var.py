@@ -3,6 +3,7 @@
 '''
 import os
 import time
+import logging
 # MINER_NUM = 10
 def __init__(): 
     current_time = time.strftime("%Y%m%d-%H%M%S")
@@ -25,6 +26,15 @@ def __init__():
     _var_dict['NET_RESULT_PATH'] = NET_RESULT_PATH
     _var_dict['Attack'] = False
     _var_dict['Blocksize'] = 2
+    _var_dict['LOG_LEVEL'] = logging.INFO
+
+def set_log_level(log_level):
+    '''设置日志级别'''
+    _var_dict['LOG_LEVEL'] = log_level
+
+def get_log_level():
+    '''获得日志级别'''
+    return _var_dict['LOG_LEVEL']
 
 def set_consensus_type(consensus_type):
     '''定义共识协议类型 type:str'''
