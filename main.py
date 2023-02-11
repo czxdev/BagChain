@@ -3,6 +3,7 @@ import time
 import numpy as np
 import os
 import urllib3
+import logging
 # from sklearn.datasets import fetch_openml
 
 import global_var
@@ -81,6 +82,10 @@ if __name__ == "__main__":
     global_var_init(n, q, blocksize)
     global_task_init()
 
+    # 配置日志文件
+    logging.basicConfig(filename=global_var.get_result_path()+'/events.log',
+                        level=global_var.get_log_level(), filemode='w')
+    
     network_param = {'readtype': 'coo', 'TTL': 500}   # Topology网络参数
     #                                                 # =>readtype: 读取csv文件类型, 'adj'为邻接矩阵, 'coo'为coo格式的稀疏矩阵
     #                                                 # =>TTL: 区块的最大生存周期   

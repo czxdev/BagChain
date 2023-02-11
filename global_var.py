@@ -3,6 +3,7 @@
 '''
 import os
 import time
+import logging
 # MINER_NUM = 10
 
 from task import Task
@@ -36,6 +37,7 @@ def __init__():
     _var_dict['MINIBLOCK_NUM'] = 5
     _var_dict['BAG_SCALE'] = 0.5
     _var_dict['global_task'] = None # 需要在主程序中生成一个全局任务
+    _var_dict['LOG_LEVEL'] = logging.INFO
 
 def set_dataset_path(dataset_path):
     '''获取npz格式数据集的路径'''
@@ -100,6 +102,14 @@ def set_global_task(global_task:Task):
 def get_global_task() -> Task:
     '''获得全局任务'''
     return _var_dict['global_task']
+
+def set_log_level(log_level):
+    '''设置日志级别'''
+    _var_dict['LOG_LEVEL'] = log_level
+
+def get_log_level():
+    '''获得日志级别'''
+    return _var_dict['LOG_LEVEL']
 
 def set_consensus_type(consensus_type):
     '''定义共识协议类型 type:str'''

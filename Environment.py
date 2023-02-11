@@ -218,6 +218,6 @@ class Environment(object):
         time_cost = time.gmtime(time_len)
         vel = process/(time_len)
         time_eval = time.gmtime(total/(vel+0.001))
-        print("\r{}{}  {:.5f}%  {}/{}  {:.2f} round/s  {}:{}:{}>>{}:{}:{}  Envents: "\
+        print("\r{}{}  {:.5f}%  {}/{}  {:.2f} round/s  {}:{}:{}>>{}:{}:{}  Events: see events.log     "\
         .format(cplt, uncplt, percent*100, process, total, vel, time_cost.tm_hour, time_cost.tm_min, time_cost.tm_sec,\
             time_eval.tm_hour, time_eval.tm_min, time_eval.tm_sec),end="", flush=True)
