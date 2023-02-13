@@ -42,21 +42,21 @@ class Block(object):
     '''描述区块结构，实现区块哈希的计算'''
     class BlockExtra:
         '''描述blockextra中信息'''
-        def __init__(self,task_id=0, task_list=None, miniblock_hash=None, miniblock_list=None, 
-                     metric=None, is_miniblock=False, model=None, model_hash=None, 
+        def __init__(self,task_id=0, task_list=None, miniblock_hash=None, miniblock_list=None,
+                     metric=None, is_miniblock=False, model=None, model_hash=None,
                      validation_hash=None, validation_list=None, validation_metric=None):
             '''BlockExtra对象初始化'''
             self.task_id = task_id
-            self.task_list = task_list # 对于miniblock无效
+            self.task_list = task_list or [] # 对于miniblock无效
             self.miniblock_hash = miniblock_hash
-            self.miniblock_list = miniblock_list
+            self.miniblock_list = miniblock_list or []
             self.metric = metric
             # 以下记录与Miniblock有关的信息
             self.is_miniblock = is_miniblock
             self.model_hash = model_hash # 用id(model)代替哈希
             self.model = model
             self.validation_hash = validation_hash
-            self.validation_list = validation_list
+            self.validation_list = validation_list or []
             self.validation_metric = validation_metric
 
         def __deepcopy__(self, memo):

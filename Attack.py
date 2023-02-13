@@ -43,7 +43,7 @@ class Selfmining(Attack):
         # 不再补充设置qmax和target
         self.qmax = self.Adver[0].qmax
         self.consensus = for_name(global_var.get_consensus_type())()
-        self.consensus.setparam(target)
+        self.consensus.setparam()
         # 从环境中提取共识 这里选择在Adver集团建立一个统一的共识对象 共享挖掘进度
         self.round = 1
         self.network = network

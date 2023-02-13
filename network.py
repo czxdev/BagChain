@@ -421,7 +421,9 @@ class TopologyNetwork(Network):
                             # 不是敌对玩家
                             # if not self.miners[tgm].receiveBlock(bp.block) and not self.miners[tgm].isAdversary:
 
-                            if self.miners[tgm].receiveBlock(bp.block):  # if the block not in local chain, addchain,
+                            if self.miners[tgm].receiveBlock(bp.block):  
+                                # if the block not in local chain 
+                                # or the miniblock not in miniblock_storage
                                 bp.received_miners.append(tgm)
                                 self.normal_forward(scm, tgm, bp, round)  # 传播策略
                         else:

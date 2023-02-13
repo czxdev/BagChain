@@ -73,7 +73,7 @@ def run():
 
 if __name__ == "__main__":
     n = 10  # number of miners
-    t = 3   # maximum number of adversary
+    t = 0   # maximum number of adversary
     q = 5
 
     target = '000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF'
@@ -89,6 +89,6 @@ if __name__ == "__main__":
     network_param = {'readtype': 'coo', 'TTL': 500}   # Topology网络参数
     #                                                 # =>readtype: 读取csv文件类型, 'adj'为邻接矩阵, 'coo'为coo格式的稀疏矩阵
     #                                                 # =>TTL: 区块的最大生存周期   
-    adversary_ids = (5, 1, 7)     # use a tuple
+    adversary_ids = ()     # no attacks
     Z = Environment(t, q, target, network_param, *adversary_ids)
     run()

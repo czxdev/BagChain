@@ -122,6 +122,19 @@ class Environment(object):
                             self.global_chain.AddChain(newblock)
                     self.miners[i].input_tape = []  # clear the input tape
                     self.miners[i].receive_tape = []  # clear the communication tape
+            REDUNDANT_MINIBLOCK = 3
+            # TODO 有多个task的情况下需要修改
+            for miner in self.miners:
+                if len(miner.miniblock_storage) >= \
+                    global_var.get_global_task().miniblock_num + REDUNDANT_MINIBLOCK:
+                    prehash = miner.miniblock_storage[0].blockhead.prehash
+                    task_id = miner.miniblock_storage[0].blockextra.task_id
+                    # 向所有矿工公布某一分支上的测试集
+                    test_set_publication_message = (prehash, task_id, time.time_ns())
+                    for miner in self.miners:
+                        if miner.test_set_published(prehash, task_id): # 检查测试集是否已经发布
+                            break
+                        miner.test_set_publication_channel.append(test_set_publication_message)
             self.network.diffuse(round)  # diffuse(C)
             self.assess_common_prefix()
             self.process_bar(round, num_rounds, t_0) # 这个是显示进度条的，如果不想显示，注释掉就可以
@@ -144,12 +157,8 @@ class Environment(object):
     def view(self):
         '''展示一些仿真结果'''
         print('\n')
-        miner_i = 0
-        while miner_i < self.miner_num:
-            # print("Blockchain of Miner", miner_i, ":", "")
-            # self.miners[miner_i].Blockchain.ShowLChain()
-            printchain2txt(self.miners[miner_i], ''.join(['chain_data', str(miner_i), '.txt']))
-            miner_i = miner_i + 1
+        for i,miner in enumerate(self.miners):
+            printchain2txt(miner, ''.join(['chain_data', str(i), '.txt']))
         print("Global Tree Structure:", "")
         self.global_chain.ShowStructure1()
         print("End of Global Tree", "")

@@ -109,7 +109,7 @@ def printchain2txt(miner,chain_data_url='chain_data.txt'):
 
     
     with open(RESULT_PATH+'\\'+chain_data_url,'w+') as f:
-        print("Blockchian maintained BY Miner",miner.Miner_ID,file=f)    
+        print("Blockchian maintained BY Miner",miner.Miner_ID,file=f)
 
         # 打印主链
         blocklist = miner.Blockchain.InversShowBlock()
@@ -129,18 +129,24 @@ def printchain2txt(miner,chain_data_url='chain_data.txt'):
             print("isAdversaryBlock:",block.isAdversaryBlock,'\n'
             "prehash:",block.blockhead.prehash,'\n'
             "blockhash:",block.blockhead.blockhash,'\n'
-            "target:",block.blockhead.target,'\n'
-            "nonce:",block.blockhead.nonce,'\n'
+            # "target:",block.blockhead.target,'\n'
+            # "nonce:",block.blockhead.nonce,'\n'
             "height:",block.blockhead.height,'\n'
             "Miner:",block.blockhead.miner,'\n'
             "timestamp:",block.blockhead.timestamp,'\n'
             "content:",block.content,'\n',
-            "blocksize",block.blocksize_byte,'byte','\n',file=f)
+            "blocksize",block.blocksize_byte,'byte','\n'
+            "metric:",block.blockextra.metric,'\n',
+            "miniblocks:",[miniblock.name for miniblock in \
+                           block.blockextra.miniblock_list],'\n',
+            "miniblock_metric: ",[round(miniblock.blockextra.validation_metric,5) \
+                                  for miniblock in block.blockextra.miniblock_list],
+                                  '\n',file=f)
             for i in block.next:
                 q.append(i)
         
         #打印区块链参数
-        print('\nChain Evaluation:\n',file=f)
+        print('Chain Evaluation:\n',file=f)
         #chain_quality
         cq_dict,chain_quality_property=chain_quality(miner.Blockchain)
         print('Chain_Quality:',cq_dict,
@@ -165,4 +171,3 @@ def printchain2txt(miner,chain_data_url='chain_data.txt'):
 #     '\nChain_Quality_Property:',chain_quality_property,
 #     file=f
 #     )
-

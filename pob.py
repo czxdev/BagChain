@@ -1,6 +1,7 @@
 '''实现PoB类以及PoB类中使用的辅助函数'''
 import time
 import copy
+import random
 import numpy as np
 
 import global_var
@@ -191,15 +192,15 @@ class PoB(Consensus):
         if validation_metric < current_task.minimum_metric:
             return (None, False)
 
-        blockextra = Block.BlockExtra(id(current_task), lastblock.blockextra.task_list, 
-                                      None, None, None, True, 
-                                      model, id(model), validation_hash, 
+        blockextra = Block.BlockExtra(id(current_task), lastblock.blockextra.task_list,
+                                      None, None, None, True,
+                                      model, id(model), validation_hash,
                                       validation_list, validation_metric)
         # miniblock中继承上一个区块中的task_list
-        blockhead = BlockHead(lastblock.blockhead.blockhash, None, 
-                              time.time_ns(), None, None, lastblock.blockhead.height+1, miner) 
-        new_miniblock = Block(None, blockhead, None, is_adversary, blockextra, 
-                              False, global_var.get_blocksize())
+        blockhead = BlockHead(lastblock.blockhead.blockhash, None,
+                              time.time_ns(), None, None, lastblock.blockhead.height+1, miner)
+        new_miniblock = Block(global_var.get_miniblock_name(lastblock.name), blockhead, None,
+                              is_adversary, blockextra, False, global_var.get_blocksize())
         new_miniblock.blockhead.blockhash = new_miniblock.calculate_blockhash()
         new_miniblock.last = lastblock
         return (new_miniblock, True)
@@ -227,8 +228,9 @@ class PoB(Consensus):
 
         # 抽取数量为miniblock_num的miniblock，用其中的模型在测试集上预测
         if len(miniblock_list) > miniblock_num:
-            miniblock_sample_index = np.random.randint(0,len(miniblock_list),miniblock_num)
-            miniblock_sampled_list = miniblock_list[miniblock_sample_index]
+            # miniblock_sample_index = np.random.randint(0,len(miniblock_list),miniblock_num)
+            # miniblock_sampled_list = miniblock_list[miniblock_sample_index]
+            miniblock_sampled_list = random.sample(miniblock_list, miniblock_num)
         else:
             miniblock_sampled_list = miniblock_list
         miniblock_preict = []
@@ -274,7 +276,8 @@ if __name__ == "__main__":
     # 生成miniblock
     miniblock_list_test = []
     for miner_id in range(N):
-        new_miniblock_test,training_success = consensus.train(test_chain_1.lastblock, miner_id, False)
+        new_miniblock_test,training_success = consensus.train(test_chain_1.lastblock,
+                                                              miner_id, False)
         if not training_success:
             raise Exception("Training failed for some reason")
         print('Miniblock from miner', miner_id, 'ready')

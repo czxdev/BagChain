@@ -32,12 +32,13 @@ def __init__():
     _var_dict['DATASET_PATH'] = './datasets/mnist.npz'
     _var_dict['MODEL_TYPE'] = 'sklearn.tree.DecisionTreeClassifier'
     _var_dict['METRIC_EVALUTOR'] = 'sklearn.metrics.accuracy_score'
-    _var_dict['MINIMUM_METRIC'] = 0.8
-    _var_dict['BLOCK_METRIC_REQUIREMENT'] = 0.9
+    _var_dict['MINIMUM_METRIC'] = 0.845
+    _var_dict['BLOCK_METRIC_REQUIREMENT'] = 0.91
     _var_dict['MINIBLOCK_NUM'] = 5
     _var_dict['BAG_SCALE'] = 0.5
     _var_dict['global_task'] = None # 需要在主程序中生成一个全局任务
     _var_dict['LOG_LEVEL'] = logging.INFO
+    _var_dict['MINIBLOCK_COUNTER'] = {'B0':-1} # 迷你块计数器，以字典形式为每个块之后的miniblock计数
 
 def set_dataset_path(dataset_path):
     '''获取npz格式数据集的路径'''
@@ -146,6 +147,18 @@ def get_block_number():
     '''获得产生区块的独立编号'''
     _var_dict['BLOCK_NUMBER'] = _var_dict['BLOCK_NUMBER'] + 1
     return _var_dict['BLOCK_NUMBER']
+
+def get_miniblock_name(pre_block_name:str) -> str:
+    '''获得产生miniblock的名称'''
+    # 检查pre_block_name的有效性
+    pre_block_num = int(pre_block_name.split('B')[1])
+    if pre_block_num > _var_dict['BLOCK_NUMBER']:
+        raise Warning(f"Invalid block name:{pre_block_name}")
+    if pre_block_name not in _var_dict['MINIBLOCK_COUNTER']:
+        _var_dict['MINIBLOCK_COUNTER'][pre_block_name] = 0
+    else:
+        _var_dict['MINIBLOCK_COUNTER'][pre_block_name] += 1
+    return f"{pre_block_name}-{_var_dict['MINIBLOCK_COUNTER'][pre_block_name]}"
 
 def get_result_path():
     return _var_dict['RESULT_PATH']
