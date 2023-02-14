@@ -27,6 +27,7 @@ def __init__():
     _var_dict['Attack'] = False
     _var_dict['Blocksize'] = 2
     _var_dict['LOG_LEVEL'] = logging.INFO
+    _var_dict['Show_Fig'] = False
 
 def set_log_level(log_level):
     '''设置日志级别'''
@@ -96,3 +97,10 @@ def set_show_fig(show_fig):
 
 def get_show_fig():
     return _var_dict['Show_Fig']
+
+def save_configuration():
+    '''将_var_dict中的内容保存到configuration.txt中'''
+    with open(_var_dict['RESULT_PATH']+"\\configuration.txt",
+              'w+') as config:
+        for key,value in _var_dict.items():
+            print(key,": ",value,file=config)

@@ -29,6 +29,7 @@ global_var.set_network_type("network.TopologyNetwork")
 global_var.set_qmax(q)
 global_var.set_blocksize(blocksize)
 global_var.set_show_fig(False)
+global_var.save_configuration()
 
 # 配置日志文件
 logging.basicConfig(filename=global_var.get_result_path()+'/events.log',
