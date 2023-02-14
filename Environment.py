@@ -125,8 +125,10 @@ class Environment(object):
             REDUNDANT_MINIBLOCK = 3
             # TODO 有多个task的情况下需要修改
             for miner in self.miners:
+                # 如果有矿工miniblock数量超过达到MINIBLOCK_NUM+REDUNDANT_MINIBLOCK就发布测试集
                 if len(miner.miniblock_storage) >= \
-                    global_var.get_global_task().miniblock_num + REDUNDANT_MINIBLOCK:
+                    miner.Blockchain.lastblock.blockextra.task_list[0].miniblock_num + \
+                    global_var.get_redundant_miniblock():
                     prehash = miner.miniblock_storage[0].blockhead.prehash
                     task_id = miner.miniblock_storage[0].blockextra.task_id
                     # 向所有矿工公布某一分支上的测试集

@@ -67,7 +67,7 @@ def global_task_init():
 
 @get_time
 def run():
-    Z.exec(100000)
+    Z.exec(500)
 
     Z.view()
 

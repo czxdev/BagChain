@@ -32,13 +32,14 @@ def __init__():
     _var_dict['DATASET_PATH'] = './datasets/mnist.npz'
     _var_dict['MODEL_TYPE'] = 'sklearn.tree.DecisionTreeClassifier'
     _var_dict['METRIC_EVALUTOR'] = 'sklearn.metrics.accuracy_score'
-    _var_dict['MINIMUM_METRIC'] = 0.845
-    _var_dict['BLOCK_METRIC_REQUIREMENT'] = 0.91
+    _var_dict['MINIMUM_METRIC'] = 0.844
+    _var_dict['BLOCK_METRIC_REQUIREMENT'] = 0.915
     _var_dict['MINIBLOCK_NUM'] = 5
     _var_dict['BAG_SCALE'] = 0.5
     _var_dict['global_task'] = None # 需要在主程序中生成一个全局任务
     _var_dict['LOG_LEVEL'] = logging.INFO
     _var_dict['MINIBLOCK_COUNTER'] = {'B0':-1} # 迷你块计数器，以字典形式为每个块之后的miniblock计数
+    _var_dict['REDUNDANT_MINIBLOCK'] = 1 # 冗余miniblock数量，详情见Environment.py
 
 def set_dataset_path(dataset_path):
     '''获取npz格式数据集的路径'''
@@ -159,6 +160,14 @@ def get_miniblock_name(pre_block_name:str) -> str:
     else:
         _var_dict['MINIBLOCK_COUNTER'][pre_block_name] += 1
     return f"{pre_block_name}-{_var_dict['MINIBLOCK_COUNTER'][pre_block_name]}"
+
+def set_redundant_miniblock(redundant_miniblock):
+    '''设置冗余miniblock数量'''
+    _var_dict['REDUNDANT_MINIBLOCK'] = redundant_miniblock
+
+def get_redundant_miniblock():
+    '''获取冗余miniblock数量'''
+    return _var_dict['REDUNDANT_MINIBLOCK']
 
 def get_result_path():
     return _var_dict['RESULT_PATH']

@@ -190,10 +190,15 @@ class Miner(object):
                 if self.consensus.validate(otherblock):
                     # 把合法链的公共部分加入到本地区块链中
                     blocktmp = self.Blockchain.AddChain(otherblock)
-                    # 找到最长链
+                    # 找到最长链,或者区块高度相同但是性能更好的链
                     depthself = self.Blockchain.lastblock.BlockHeight()
                     depthOtherblock = otherblock.BlockHeight()
-                    if depthself < depthOtherblock:
+                    # 需要保证任务相同才能比较性能指标
+                    if depthself < depthOtherblock or depthself == depthOtherblock \
+                        and otherblock.blockextra.task_id == \
+                            self.Blockchain.lastblock.blockextra.task_id \
+                        and otherblock.blockextra.metric > \
+                            self.Blockchain.lastblock.blockextra.metric :
                         self.Blockchain.lastblock = blocktmp
                         new_update = True
                         self.miniblock_storage = []
