@@ -29,6 +29,7 @@ def __init__():
     _var_dict['NET_RESULT_PATH'] = NET_RESULT_PATH
     _var_dict['Attack'] = False
     _var_dict['Blocksize'] = 2
+    _var_dict['MINIBLOCK_SIZE'] = 2
     _var_dict['DATASET_PATH'] = './datasets/mnist.npz'
     _var_dict['MODEL_TYPE'] = 'sklearn.tree.DecisionTreeClassifier'
     _var_dict['METRIC_EVALUTOR'] = 'sklearn.metrics.accuracy_score'
@@ -38,6 +39,7 @@ def __init__():
     _var_dict['BAG_SCALE'] = 0.5
     _var_dict['global_task'] = None # 需要在主程序中生成一个全局任务
     _var_dict['LOG_LEVEL'] = logging.INFO
+    _var_dict['Show_Fig'] = False
     _var_dict['MINIBLOCK_COUNTER'] = {'B0':-1} # 迷你块计数器，以字典形式为每个块之后的miniblock计数
     _var_dict['REDUNDANT_MINIBLOCK'] = 1 # 冗余miniblock数量，详情见Environment.py
 
@@ -191,9 +193,24 @@ def set_blocksize(blocksize):
 
 def get_blocksize():
     return _var_dict['Blocksize']
+    
+def set_miniblock_size(size):
+    '''设置miniblock大小'''
+    _var_dict['MINIBLOCK_SIZE'] = size
+
+def get_miniblock_size():
+    '''得到miniblock大小'''
+    return _var_dict['MINIBLOCK_SIZE']
 
 def set_show_fig(show_fig):
     _var_dict['Show_Fig'] = show_fig
 
 def get_show_fig():
     return _var_dict['Show_Fig']
+
+def save_configuration():
+    '''将_var_dict中的内容保存到configuration.txt中'''
+    with open(_var_dict['RESULT_PATH']+"\\configuration.txt",
+              'w+') as config:
+        for key,value in _var_dict.items():
+            print(key,": ",value,file=config)

@@ -80,6 +80,7 @@ if __name__ == "__main__":
     blocksize = 16
 
     global_var_init(n, q, blocksize)
+    global_var.save_configuration()
     global_task_init()
 
     # 配置日志文件

@@ -79,14 +79,14 @@ class Block(object):
 
 
     def __init__(self, name=None, blockhead: BlockHead = None, content=None, isadversary=False, 
-                 blockextra=BlockExtra(), isgenesis=False, blocksize_MB=2):
+                 blockextra=None, isgenesis=False, blocksize_MB=2):
         self.name = name
         self.blockhead = blockhead
         self.isAdversaryBlock = isadversary
         self.content = content
         self.next = []  # 子块列表
         self.last = None  # 母块
-        self.blockextra = blockextra # 其他共识协议需要的额外信息
+        self.blockextra = blockextra or Block.BlockExtra() # 其他共识协议需要的额外信息
         self.isGenesis = isgenesis
         self.blocksize_byte = blocksize_MB * 1048576
 
