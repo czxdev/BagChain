@@ -1,6 +1,7 @@
 '''实现BlockHead、Block以及Chain类描述区块链结构'''
 import copy
 import matplotlib.pyplot as plt
+import graphviz
 
 from functions import hashG, hashH
 import global_var
@@ -456,6 +457,36 @@ class Chain(object):
         plt.savefig(RESULT_PATH + '\\' + 'blockchain visualisation.svg')
         if global_var.get_show_fig():
             plt.show()
+
+    def ShowStructureWithGraphviz(self):
+        '''借助Graphviz将区块链可视化'''
+        # 采用有向图
+        dot = graphviz.Digraph('Blockchain Structure',engine='dot')
+        blocktmp = self.head
+        fork_list = []
+        while blocktmp:
+            if blocktmp.isGenesis == False:
+                # 建立区块节点
+                if blocktmp.isAdversaryBlock:
+                    dot.node(blocktmp.name, shape='rect', color='red')
+                else:
+                    dot.node(blocktmp.name,shape='rect',color='yellow')
+                # 建立区块连接
+                dot.edge(blocktmp.last.name, blocktmp.name)
+            else:
+                dot.node('B0',shape='rect',color='black',fontsize='20')
+            list_tmp = copy.copy(blocktmp.next)
+            if list_tmp:
+                blocktmp = list_tmp.pop(0)
+                fork_list.extend(list_tmp)
+            else:
+                if fork_list:
+                    blocktmp = fork_list.pop(0)
+                else:
+                    blocktmp = None
+        # 生成矢量图,展示结果
+        dot.render(directory=global_var.get_result_path()+"\\blockchain_visualization",
+                   format='svg', view=global_var.get_show_fig())
 
     def Get_block_interval_distribution(self):
         stat = []
