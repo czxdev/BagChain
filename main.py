@@ -66,12 +66,11 @@ def global_task_init():
 
 
 @get_time
-def run():
+def run(Z):
     Z.exec(500)
-
     Z.view()
 
-if __name__ == "__main__":
+def main():
     n = 10  # number of miners
     t = 0   # maximum number of adversary
     q = 5
@@ -91,5 +90,7 @@ if __name__ == "__main__":
     #                                                 # =>readtype: 读取csv文件类型, 'adj'为邻接矩阵, 'coo'为coo格式的稀疏矩阵
     #                                                 # =>TTL: 区块的最大生存周期   
     adversary_ids = ()     # no attacks
-    Z = Environment(t, q, target, network_param, *adversary_ids)
-    run()
+    run(Environment(t, q, target, network_param, *adversary_ids))
+
+if __name__ == "__main__":
+    main()

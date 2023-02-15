@@ -464,15 +464,24 @@ class Chain(object):
         dot = graphviz.Digraph('Blockchain Structure',engine='dot')
         blocktmp = self.head
         fork_list = []
+        miniblock_name_list = []
         while blocktmp:
             if blocktmp.isGenesis == False:
                 # 建立区块节点
                 if blocktmp.isAdversaryBlock:
-                    dot.node(blocktmp.name, shape='rect', color='red')
+                    dot.node(blocktmp.name, shape='rect', color='red',
+                             label=blocktmp.name+':'+str(blocktmp.blockextra.metric))
                 else:
-                    dot.node(blocktmp.name,shape='rect',color='yellow')
-                # 建立区块连接
-                dot.edge(blocktmp.last.name, blocktmp.name)
+                    dot.node(blocktmp.name,shape='rect',color='yellow',
+                             label=blocktmp.name+':'+str(blocktmp.blockextra.metric))
+                # 建立Miniblock节点
+                for miniblock in blocktmp.blockextra.miniblock_list:
+                    if miniblock.name not in miniblock_name_list:
+                        dot.node(miniblock.name, shape='rect', color='green')
+                        dot.edge(miniblock.last.name, miniblock.name)
+                        miniblock_name_list.append(miniblock.name)
+                    # 建立区块与miniblock的连接
+                    dot.edge(miniblock.name, blocktmp.name)
             else:
                 dot.node('B0',shape='rect',color='black',fontsize='20')
             list_tmp = copy.copy(blocktmp.next)
@@ -487,7 +496,49 @@ class Chain(object):
         # 生成矢量图,展示结果
         dot.render(directory=global_var.get_result_path()+"\\blockchain_visualization",
                    format='svg', view=global_var.get_show_fig())
-
+    
+    def ShowStructureWithGraphvizWithAllMiniblock(self, complete_miniblock_list):
+        '''借助Graphviz将区块链可视化'''
+        # 采用有向图
+        dot = graphviz.Digraph('Blockchain Structure',engine='dot')
+        blocktmp = self.head
+        fork_list = []
+        miniblock_name_list = []
+        while blocktmp:
+            if blocktmp.isGenesis == False:
+                # 建立区块节点
+                if blocktmp.isAdversaryBlock:
+                    dot.node(blocktmp.name, shape='rect', color='red')
+                else:
+                    dot.node(blocktmp.name,shape='rect',color='yellow')
+                # 建立Miniblock节点
+                for miniblock in blocktmp.blockextra.miniblock_list:
+                    if miniblock.name not in miniblock_name_list:
+                        dot.node(miniblock.name, shape='rect', color='green')
+                        dot.edge(miniblock.last.name, miniblock.name)
+                        miniblock_name_list.append(miniblock.name)
+                    # 建立区块与miniblock的连接
+                    dot.edge(miniblock.name, blocktmp.name)
+            else:
+                dot.node('B0',shape='rect',color='black',fontsize='20')
+            list_tmp = copy.copy(blocktmp.next)
+            if list_tmp:
+                blocktmp = list_tmp.pop(0)
+                fork_list.extend(list_tmp)
+            else:
+                if fork_list:
+                    blocktmp = fork_list.pop(0)
+                else:
+                    blocktmp = None
+        for miniblock in complete_miniblock_list:
+            if miniblock.name not in miniblock_name_list:
+                dot.node(miniblock.name, shape='rect', color='green')
+                dot.edge(miniblock.last.name, miniblock.name)
+        # 生成矢量图,展示结果
+        dot.render(filename="blockchain_visualization_with_stale_miniblock",
+                   directory=global_var.get_result_path()+"\\blockchain_visualization",
+                   format='svg', view=global_var.get_show_fig())
+    
     def Get_block_interval_distribution(self):
         stat = []
         blocktmp2 = self.lastblock

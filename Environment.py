@@ -33,6 +33,7 @@ class Environment(object):
         self.target = target
         self.total_round = 0
         self.global_chain = Chain()  # a global tree-like data structure
+        self.global_miniblock_list = []
         # generate miners
         self.miners = []
         miner_i = 0
@@ -120,6 +121,8 @@ class Environment(object):
                         self.network.access_network(newblock,self.miners[i].Miner_ID,round)
                         if not newblock.blockextra.is_miniblock: # 完整的区块要合并到全局链
                             self.global_chain.AddChain(newblock)
+                        elif newblock not in self.global_miniblock_list:
+                            self.global_miniblock_list.append(newblock)
                     self.miners[i].input_tape = []  # clear the input tape
                     self.miners[i].receive_tape = []  # clear the communication tape
             REDUNDANT_MINIBLOCK = 3
@@ -208,7 +211,9 @@ class Environment(object):
         # block interval distribution
         # self.miners[0].Blockchain.Get_block_interval_distribution()
 
+        print('Visualizing Blockchain...')
         self.global_chain.ShowStructureWithGraphviz()
+        self.global_chain.ShowStructureWithGraphvizWithAllMiniblock(self.global_miniblock_list)
 
         if self.network.__class__.__name__=='TopologyNetwork':
             self.network.gen_routing_gragh_from_json()
