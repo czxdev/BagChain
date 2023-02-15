@@ -197,7 +197,7 @@ class Environment(object):
         # block interval distribution
         # self.miners[0].Blockchain.Get_block_interval_distribution()
 
-
+        self.global_chain.ShowStructureWithGraphviz()
 
         if self.network.__class__.__name__=='TopologyNetwork':
             self.network.gen_routing_gragh_from_json()

@@ -3,6 +3,8 @@
 
 # 安装 
  **Dependency**
+ - python >= 3.7
+ - graphviz
  - scipy
  - matplotlib > 3.5.1
  - networkx > 2.8.7
