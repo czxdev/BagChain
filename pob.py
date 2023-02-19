@@ -200,7 +200,7 @@ class PoB(Consensus):
         blockhead = BlockHead(lastblock.blockhead.blockhash, None,
                               time.time_ns(), None, None, lastblock.blockhead.height+1, miner)
         new_miniblock = Block(global_var.get_miniblock_name(lastblock.name), blockhead, None,
-                              is_adversary, blockextra, False, global_var.get_blocksize())
+                              is_adversary, blockextra, False, global_var.get_miniblock_size())
         new_miniblock.blockhead.blockhash = new_miniblock.calculate_blockhash()
         new_miniblock.last = lastblock
         return (new_miniblock, True)
