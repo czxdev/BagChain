@@ -19,13 +19,13 @@ python test.py
 将会在Results文件夹生成仿真区块数据，包括每个矿工的区块链记录、区块链可视化矢量图、区块链攻击者日志、路由历史、网络矢量图、区块传播示意图。
 
 # 文件结构
-test.py: 仿真器的主程序
-Environment.py: 环境类与相关函数
-Miner.py: 矿工类与相关函数
-chain.py: 包括块头、区块、区块链的类与相关函数
-consensus.py: 抽象共识类、PoW类与相关函数
-BitcoinBackboneProtocol.py: 核心共识函数
-Network.py: 网络类，包括网络拓扑与传播相关的函数
-Attack.py: 攻击者类与相关函数
-functions.py: 包含计算哈希（SHA256）在内的一些函数
-external.py: 一些外部函数
+- test.py: 仿真器的主程序
+- Environment.py: 环境类与相关函数
+- Miner.py: 矿工类与相关函数
+- chain.py: 包括块头、区块、区块链的类与相关函数
+- consensus.py: 抽象共识类、PoW类与相关函数
+- BitcoinBackboneProtocol.py: 核心共识函数
+- Network.py: 网络类，包括网络拓扑与传播相关的函数
+- Attack.py: 攻击者类与相关函数
+- functions.py: 包含计算哈希（SHA256）在内的一些函数
+- external.py: 一些外部函数
