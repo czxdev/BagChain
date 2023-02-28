@@ -35,7 +35,7 @@ def global_task_init():
     dataset_path = global_var.get_dataset_path()
     if not os.path.exists(dataset_path):
         http = urllib3.PoolManager()
-        print('Downloading mnist dataset to', dataset_path)
+        print('Downloading mnist dataset to', str(dataset_path))
         response = http.request('GET',
                                 'https://s3.amazonaws.com/img-datasets/mnist.npz')
         mnist_file = open(dataset_path,'wb+')
@@ -83,7 +83,7 @@ def main():
     global_task_init()
 
     # 配置日志文件
-    logging.basicConfig(filename=global_var.get_result_path()+'/events.log',
+    logging.basicConfig(filename=global_var.get_result_path() / 'events.log',
                         level=global_var.get_log_level(), filemode='w')
     
     network_param = {'readtype': 'coo', 'TTL': 500}   # Topology网络参数

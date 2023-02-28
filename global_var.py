@@ -1,7 +1,7 @@
 '''
     全局变量
 '''
-import os
+from pathlib import Path
 import time
 import logging
 # MINER_NUM = 10
@@ -13,10 +13,10 @@ def __init__():
     初始化
     '''
     current_time = time.strftime("%Y%m%d-%H%M%S")
-    RESULT_PATH=os.getcwd()+'\\'+'Results'+'\\'+current_time
-    os.makedirs(RESULT_PATH) 
-    NET_RESULT_PATH=RESULT_PATH+'\\'+'Network Results'
-    os.makedirs(NET_RESULT_PATH)
+    RESULT_PATH=Path.cwd() / 'Results' / current_time
+    RESULT_PATH.mkdir(parents=True)   
+    NET_RESULT_PATH=RESULT_PATH / 'Network Results'
+    NET_RESULT_PATH.mkdir()
     global _var_dict
     _var_dict = {}
     _var_dict['MINER_NUM']=0
@@ -30,7 +30,7 @@ def __init__():
     _var_dict['Attack'] = False
     _var_dict['Blocksize'] = 2
     _var_dict['MINIBLOCK_SIZE'] = 2
-    _var_dict['DATASET_PATH'] = './datasets/mnist.npz'
+    _var_dict['DATASET_PATH'] = Path.cwd() / 'datasets/mnist.npz'
     _var_dict['MODEL_TYPE'] = 'sklearn.tree.DecisionTreeClassifier'
     _var_dict['METRIC_EVALUTOR'] = 'sklearn.metrics.accuracy_score'
     _var_dict['MINIMUM_METRIC'] = 0.844
@@ -210,7 +210,7 @@ def get_show_fig():
 
 def save_configuration():
     '''将_var_dict中的内容保存到configuration.txt中'''
-    with open(_var_dict['RESULT_PATH']+"\\configuration.txt",
+    with open(_var_dict['RESULT_PATH'] / "configuration.txt",
               'w+') as config:
         for key,value in _var_dict.items():
             print(key,": ",value,file=config)

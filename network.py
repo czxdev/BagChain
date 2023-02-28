@@ -48,7 +48,7 @@ class FullConnectedNetwork(Network):
         self.network_tape = []  # network_tape存储要广播的新块和对应的信息
         # 元素chain_packet为字典存储新块及'minerid'、'TTL'等信息
 
-        with open(self.NET_RESULT_PATH + '\\' + 'network_log.txt', 'a') as f:
+        with open(self.NET_RESULT_PATH / 'network_log.txt', 'a') as f:
             print('Network Type: FullConnectedNetwork', file=f)
 
     def set_net_param(self):
@@ -91,7 +91,7 @@ class BoundedDelayNetwork(Network):
         self.network_tape = []
         self.genMinerDelay(5)  # 最大网络时延为5
 
-        with open(self.NET_RESULT_PATH + '\\' + 'network_log.txt', 'a') as f:
+        with open(self.NET_RESULT_PATH / 'network_log.txt', 'a') as f:
             print('Network Type: BoundedDelayNetwork', file=f)
 
     def set_net_param(self):
@@ -145,7 +145,7 @@ class BoundedDelayNetwork(Network):
         self.rcvprob_start = 0.25
         self.rcvprob_inc = 0.25
         # 结果打印准备
-        with open(self.NET_RESULT_PATH + '\\' + 'network_log.txt', 'a') as f:
+        with open(self.NET_RESULT_PATH / 'network_log.txt', 'a') as f:
             print('Network Type: BoundedDelayNetwork', file=f)
 
 
@@ -155,7 +155,7 @@ class BoundedDelayNetwork(Network):
                 rcvprob_inc:之后每轮增加的接收概率,默认0.25"""
         self.rcvprob_start = rcvprob_start
         self.rcvprob_inc = rcvprob_inc
-        with open(self.NET_RESULT_PATH + '\\' + 'network_log.txt', 'a') as f:
+        with open(self.NET_RESULT_PATH / 'network_log.txt', 'a') as f:
             print('rcvprob_start:{},rcvprob_inc={}'.format(self.rcvprob_start, self.rcvprob_inc), file=f)
 
 
@@ -209,7 +209,7 @@ class BoundedDelayNetwork(Network):
 
         # 一个人收到之后就不会再次收到这个块了
 
-        with open(self.NET_RESULT_PATH + '\\' + 'network_log.txt', 'a') as f:
+        with open(self.NET_RESULT_PATH / 'network_log.txt', 'a') as f:
 
             if self.network_tape:
                 died_packets = []  # TTL=0的包的索引
@@ -288,7 +288,7 @@ class TopologyNetwork(Network):
         self.network_tape = []
 
         NET_RESULT_PATH = global_var.get_net_result_path()
-        with open(NET_RESULT_PATH + '\\' + 'routing_history.json', 'a+') as f:
+        with open(NET_RESULT_PATH / 'routing_history.json', 'a+') as f:
             f.write('[')
             json.dump({"B0": {}}, f, indent=4)
             f.write(']')
@@ -559,7 +559,7 @@ class TopologyNetwork(Network):
                                      font_family='times new roman')
 
         RESULT_PATH = global_var.get_net_result_path()
-        plt.savefig(RESULT_PATH + '\\' + 'network topology.svg')
+        plt.savefig(RESULT_PATH / 'network topology.svg')
         plt.pause(1)
         plt.close()
         plt.ioff()
@@ -571,7 +571,7 @@ class TopologyNetwork(Network):
         json文件包含origin_miner和routing_histroy两种信息
         """
         bp = block_packet
-        with open(self.NET_RESULT_PATH + '\\' + 'routing_history.json', 'a+') as f:
+        with open(self.NET_RESULT_PATH / 'routing_history.json', 'a+') as f:
             f.seek(f.tell() - 1, os.SEEK_SET)
             f.truncate()
             f.write(',')
@@ -587,7 +587,7 @@ class TopologyNetwork(Network):
         """
         print('Generate routing gragh for each block from json...')
         NET_RESULT_PATH = global_var.get_net_result_path()
-        with open(NET_RESULT_PATH + '\\' + 'routing_history.json', 'r') as load_obj:
+        with open(NET_RESULT_PATH / 'routing_history.json', 'r') as load_obj:
             # a = json.load(load_obj)
             a = json.load(load_obj)
             for v_dict in a:
@@ -670,7 +670,7 @@ class TopologyNetwork(Network):
 
         NET_RESULT_PATH = global_var.get_net_result_path()
         # plt.show()
-        plt.savefig(NET_RESULT_PATH + '\\' + 'transmisson process{}.svg'.format(blockname))
+        plt.savefig(NET_RESULT_PATH / ('transmisson process{}.svg'.format(blockname)))
         plt.close()
 
 

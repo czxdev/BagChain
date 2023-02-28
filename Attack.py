@@ -236,7 +236,7 @@ class Selfmining(Attack):
 
     def attacklog2txt(self):
         RESULT_PATH = global_var.get_result_path()
-        with open(RESULT_PATH+'\\'+'Attack_log.txt','a') as f:
+        with open(RESULT_PATH / 'Attack_log.txt','a') as f:
             print('Attack Type: ',self.excute_type,'\n',file=f)
             while self.attacklog:
                 log = self.attacklog.pop(0)

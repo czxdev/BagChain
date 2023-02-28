@@ -453,8 +453,8 @@ class Chain(object):
         plt.title('blockchain visualisation')
         plt.grid(True)
         RESULT_PATH = global_var.get_result_path()
-        f = open(RESULT_PATH + '\\' + 'network_log.txt', 'a')
-        plt.savefig(RESULT_PATH + '\\' + 'blockchain visualisation.svg')
+        f = open(RESULT_PATH / 'network_log.txt', 'a')
+        plt.savefig(RESULT_PATH / 'blockchain visualisation.svg')
         if global_var.get_show_fig():
             plt.show()
 
@@ -494,7 +494,7 @@ class Chain(object):
                 else:
                     blocktmp = None
         # 生成矢量图,展示结果
-        dot.render(directory=global_var.get_result_path()+"\\blockchain_visualization",
+        dot.render(directory=global_var.get_result_path() / "blockchain_visualization",
                    format='svg', view=global_var.get_show_fig())
     
     def ShowStructureWithGraphvizWithAllMiniblock(self, complete_miniblock_list):
@@ -536,7 +536,7 @@ class Chain(object):
                 dot.edge(miniblock.last.name, miniblock.name)
         # 生成矢量图,展示结果
         dot.render(filename="blockchain_visualization_with_stale_miniblock",
-                   directory=global_var.get_result_path()+"\\blockchain_visualization",
+                   directory=global_var.get_result_path() / "blockchain_visualization",
                    format='svg', view=global_var.get_show_fig())
     
     def Get_block_interval_distribution(self):
