@@ -1,16 +1,16 @@
 '''
     全局变量
 '''
-import os
+from pathlib import Path
 import time
 import logging
 # MINER_NUM = 10
 def __init__(): 
     current_time = time.strftime("%Y%m%d-%H%M%S")
-    RESULT_PATH=os.getcwd()+'\\'+'Results'+'\\'+current_time
-    os.makedirs(RESULT_PATH) 
-    NET_RESULT_PATH=RESULT_PATH+'\\'+'Network Results'
-    os.makedirs(NET_RESULT_PATH) 
+    RESULT_PATH=Path.cwd() / 'Results' / current_time
+    RESULT_PATH.mkdir(parents=True)   
+    NET_RESULT_PATH=RESULT_PATH / 'Network Results'
+    NET_RESULT_PATH.mkdir()
     '''
     初始化
     '''
@@ -100,7 +100,7 @@ def get_show_fig():
 
 def save_configuration():
     '''将_var_dict中的内容保存到configuration.txt中'''
-    with open(_var_dict['RESULT_PATH']+"\\configuration.txt",
+    with open(_var_dict['RESULT_PATH'] / "configuration.txt",
               'w+') as config:
         for key,value in _var_dict.items():
             print(key,": ",value,file=config)

@@ -32,7 +32,7 @@ global_var.set_show_fig(False)
 global_var.save_configuration()
 
 # 配置日志文件
-logging.basicConfig(filename=global_var.get_result_path()+'/events.log',
+logging.basicConfig(filename=global_var.get_result_path() / 'events.log',
                     level=global_var.get_log_level(), filemode='w')
 
 network_param = {'readtype': 'coo', 'TTL': 500}               # Topology网络参数

@@ -1,7 +1,6 @@
 import importlib
 from base64 import encode
 import hashlib
-from ntpath import join
 import global_var
 
 def hashsha256(contentlist:list)->str:
