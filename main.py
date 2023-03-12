@@ -79,6 +79,10 @@ def main():
     blocksize = 16
 
     global_var_init(n, q, blocksize)
+    global_var.set_block_metric_requirement(0.912)
+    global_var.set_miniblock_size(2)
+    global_var.set_log_level(logging.INFO)
+    global_var.set_redundant_miniblock(1)
     global_var.save_configuration()
     global_task_init()
 

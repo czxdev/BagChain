@@ -423,7 +423,7 @@ class TopologyNetwork(Network):
 
                             if self.miners[tgm].receiveBlock(bp.block):  
                                 # if the block not in local chain 
-                                # or the miniblock not in miniblock_storage
+                                # or the miniblock hasn't been received or has been dropped
                                 bp.received_miners.append(tgm)
                                 self.normal_forward(scm, tgm, bp, round)  # 传播策略
                         else:

@@ -227,12 +227,9 @@ class PoB(Consensus):
         minimum_metric = current_task.block_metric_requirement
 
         # 抽取数量为miniblock_num的miniblock，用其中的模型在测试集上预测
-        if len(miniblock_list) > miniblock_num:
-            # miniblock_sample_index = np.random.randint(0,len(miniblock_list),miniblock_num)
-            # miniblock_sampled_list = miniblock_list[miniblock_sample_index]
-            miniblock_sampled_list = random.sample(miniblock_list, miniblock_num)
-        else:
-            miniblock_sampled_list = miniblock_list
+        # 由于miniblock_list的顺序也可能对性能指标产生影响，所以即使miniblock数量正好满足要求也要重新排序
+        miniblock_sampled_list = random.sample(miniblock_list, miniblock_num)
+        
         miniblock_preict = []
         for miniblock in miniblock_sampled_list:
             miniblock_preict.append(miniblock.blockextra.model.predict(x_test))
@@ -241,6 +238,7 @@ class PoB(Consensus):
         y_pred = []
         for i in range(len(x_test)):
             predictions = [x[i] for x in miniblock_preict]
+            # 此处对于票数相同的两个类别可能会依max的实现方法出现不同结果，因此max的实现必须统一
             joint_prediction = max(predictions, key=predictions.count)
             y_pred.append(joint_prediction)
         y_pred = np.array(y_pred)

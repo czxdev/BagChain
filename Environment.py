@@ -1,6 +1,7 @@
 import time
 import math
 import random
+import logging
 import numpy as np
 import pandas as pd
 
@@ -12,6 +13,7 @@ from chain import Block, Chain
 from miner import Miner
 from external import V, I ,R , common_prefix, chain_quality, chain_growth, printchain2txt
 
+logger = logging.getLogger(__name__)
 
 def get_time(f):
 
@@ -34,6 +36,7 @@ class Environment(object):
         self.total_round = 0
         self.global_chain = Chain()  # a global tree-like data structure
         self.global_miniblock_list = []
+        self.global_test_set_message = []
         # generate miners
         self.miners = []
         miner_i = 0
@@ -59,8 +62,6 @@ class Environment(object):
         self.selfblock = []
         self.max_suffix = 10
         self.cp_pdf = np.zeros((1, self.max_suffix)) # 每轮结束时，各个矿工的链与common prefix相差区块个数的分布
-
-
 
 
     def select_adversary_random(self):
@@ -89,7 +90,6 @@ class Environment(object):
             adversary.set_Adversary(False)
         self.adversary_mem=[]
         
-    #@get_time
     def exec(self, num_rounds):
         '''
         调用当前miner的BackboneProtocol完成mining
@@ -99,6 +99,7 @@ class Environment(object):
         if self.adversary_mem:
             attack = Selfmining(self.global_chain, self.target, self.network, self.adversary_mem, num_rounds)
         t_0 = time.time()
+        network_idle_counter = 0 # 网络闲置的轮数
         for round in range(1, num_rounds+1):
             #print("")
             #print("Round:{}".format(round))
@@ -119,31 +120,59 @@ class Environment(object):
                     newblock = self.miners[i].BackboneProtocol(round)
                     if newblock is not None:
                         self.network.access_network(newblock,self.miners[i].Miner_ID,round)
+                        network_idle_counter = 0
                         if not newblock.blockextra.is_miniblock: # 完整的区块要合并到全局链
                             self.global_chain.AddChain(newblock)
                         elif newblock not in self.global_miniblock_list:
                             self.global_miniblock_list.append(newblock)
                     self.miners[i].input_tape = []  # clear the input tape
                     self.miners[i].receive_tape = []  # clear the communication tape
-            REDUNDANT_MINIBLOCK = 3
             # TODO 有多个task的情况下需要修改
+            published_test_set_message = None
+            publish_count = 0
             for miner in self.miners:
                 # 如果有矿工miniblock数量超过达到MINIBLOCK_NUM+REDUNDANT_MINIBLOCK就发布测试集
                 if len(miner.miniblock_storage) >= \
                     miner.Blockchain.lastblock.blockextra.task_list[0].miniblock_num + \
                     global_var.get_redundant_miniblock():
+                    # 错误检查，所有miniblock的prehash应该为lastblock的blockhash
+                    for miniblock in miner.miniblock_storage:
+                        if(miniblock.blockhead.prehash != miner.Blockchain.lastblock.blockhead.blockhash):
+                            raise Warning("miniblock prehash not consistent with lastblock")
                     prehash = miner.miniblock_storage[0].blockhead.prehash
                     task_id = miner.miniblock_storage[0].blockextra.task_id
                     # 向所有矿工公布某一分支上的测试集
                     test_set_publication_message = (prehash, task_id, time.time_ns())
+                    if test_set_publication_message not in self.global_test_set_message:
+                        self.global_test_set_message.append(test_set_publication_message)
                     for miner in self.miners:
                         if miner.test_set_published(prehash, task_id): # 检查测试集是否已经发布
-                            break
+                            continue
                         miner.test_set_publication_channel.append(test_set_publication_message)
-            self.network.diffuse(round)  # diffuse(C)
+                        publish_count += 1
+                        published_test_set_message = test_set_publication_message
+            
+            # 错误检查，确保测试集发布时存在足够数量的miniblock
+            count = 0
+            if published_test_set_message:
+                for miniblock in self.global_miniblock_list:
+                    if miniblock.blockhead.prehash == published_test_set_message[0]:
+                        count += 1
+                if count < global_var.get_miniblock_num() + global_var.get_redundant_miniblock():
+                    raise Warning("Inadaqute miniblock despite test set published")
+
+            # 错误检查，如果超过一定轮数没有新区块或miniblock，可能是系统出现未知错误
+            network_idle_counter += 1 # 没有新的区块或miniblock，闲置轮数+1
+            if network_idle_counter > 100: # 如果调整了区块与miniblock大小，注意修改该阈值
+                logger.error("Blockchain system freeze, no more blocks or miniblocks")
+
+            if published_test_set_message:
+                logger.info("test set published to %d miners with prehash:%s taskid:%d at round %d",
+                publish_count, test_set_publication_message[0], test_set_publication_message[1], round)
+            self.network.diffuse(round) 
             self.assess_common_prefix()
-            self.process_bar(round, num_rounds, t_0) # 这个是显示进度条的，如果不想显示，注释掉就可以
-            # 分割一下
+            self.process_bar(round, num_rounds, t_0) # 显示进度条
+        
         # self.clear_adversary()
         self.total_round = self.total_round + num_rounds
 
@@ -218,6 +247,7 @@ class Environment(object):
         if self.network.__class__.__name__=='TopologyNetwork':
             self.network.gen_routing_gragh_from_json()
         # print_chain_property2txt(self.miners[9].Blockchain)
+        print("End")
 
     def showselfblock(self):
         print("")

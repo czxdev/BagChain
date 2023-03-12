@@ -45,6 +45,7 @@ class Miner(object):
         self.state = self.MinerState.MINING_MINIBLOCK
         self.test_set_publication_channel = [] # 测试集发布信道
         self.miniblock_storage = [] # miniblock暂存区
+        self.miniblock_pending_list = [] # 存储接收到的miniblock（无论是否是获胜区块）
 
     def test_set_published(self, prehash, task_id):
         '''检查测试集是否已经发布，如果已经发布则返回对应的发布消息
@@ -87,7 +88,8 @@ class Miner(object):
             If not, return True; else False.
         '''
         if rcvblock.blockextra.is_miniblock:
-            if rcvblock not in self.miniblock_storage:
+            if rcvblock not in self.miniblock_storage and \
+                rcvblock not in self.miniblock_pending_list:
                 self.receive_tape.append(rcvblock)
                 return True
         else:
@@ -107,39 +109,33 @@ class Miner(object):
             outcome 挖出的新区块或miniblock,没有就返回none type:Block/None
             mine_success 挖矿成功标识 type:Bool
         '''
-        # TODO 如果task_list中不止一个任务，可以改为获取费用最高的任务
-        if len(self.miniblock_storage) < \
+        outcome = None
+        mine_success = False
+        # TODO 如果task_list中不止一个任务，task_list[0]需要修改
+        test_set_message = self.test_set_published(
+            self.Blockchain.lastblock.blockhead.blockhash,
+            id(self.Blockchain.lastblock.blockextra.task_list[0]))
+        # 检查测试集是否已经发布
+        if test_set_message:# 测试集已发布
+            self.state = self.MinerState.WAITING_MINIBLOCK
+            # TODO 如果task_list中不止一个任务，可以改为获取费用最高的任务
+            if len(self.miniblock_storage) >= \
             self.Blockchain.lastblock.blockextra.task_list[0].miniblock_num:
-            if self.state == self.MinerState.WAITING_MINIBLOCK:
-                return (None, False)
-            # TODO 如果task_list中不止一个任务，task_list[0]需要修改
-            if self.test_set_published(self.Blockchain.lastblock.blockhead.blockhash,
-                                       id(self.Blockchain.lastblock.blockextra.task_list[0])):
-                # 已经到第二阶段，不再挖miniblock
-                self.state = self.MinerState.WAITING_MINIBLOCK
-                return (None, False)
-            outcome, mine_success = self.consensus.train(
-                self.Blockchain.lastblock, self.Miner_ID, self.isAdversary)
-            if mine_success:
-                self.state = self.MinerState.WAITING_MINIBLOCK
-        else:
-            message = self.test_set_published(
-                self.miniblock_storage[0].blockhead.prehash,
-                self.miniblock_storage[0].blockextra.task_id)
-            # 检查测试集是否已经发布
-            if message:
+                # miniblock数量足够开始整合
                 outcome, mine_success = self.consensus.mining_consensus(
                     self.miniblock_storage, self.Miner_ID, self.input, self.isAdversary)
                 if mine_success:
                     self.Blockchain.AddBlock(outcome)
                     self.miniblock_storage = []
                     self.state = self.MinerState.MINING_MINIBLOCK
-                    self.test_set_publication_channel.remove(message)
-                else:
+                    # self.test_set_publication_channel.remove(test_set_message)
+        else:# 测试集未发布
+            if self.state == self.MinerState.MINING_MINIBLOCK:
+                outcome, mine_success = self.consensus.train(
+                self.Blockchain.lastblock, self.Miner_ID, self.isAdversary)
+                if mine_success:
+                    self.miniblock_storage.append(outcome)
                     self.state = self.MinerState.WAITING_MINIBLOCK
-            else:
-                outcome = None
-                mine_success = False
 
         return (outcome, mine_success) # 返回结果
     
@@ -181,40 +177,67 @@ class Miner(object):
                                             incoming_data.blockextra.task_id)):
                     continue # 无效miniblock
                 if incoming_data.last in self.Blockchain:
-                    otherblock = None
-                else:
-                    otherblock = incoming_data.last
+                    if incoming_data.last.blockhead.blockhash == \
+                    self.Blockchain.lastblock.blockhead.blockhash:
+                        self.miniblock_storage.append(incoming_data)
+                        continue
+                # 缓存所有当前高度上的miniblock
+                if incoming_data.blockhead.height > \
+                    self.Blockchain.lastblock.blockhead.height:
+                    # 利用块头中的高度信息，保留比本地区块链更高的miniblock
+                    self.miniblock_pending_list.append(incoming_data)
+                    logger.info("%s enter pending list in Miner %d",
+                                    incoming_data.name, self.Miner_ID)
             else:
-                otherblock = incoming_data
-            if otherblock:
-                if self.consensus.validate(otherblock):
+                if self.consensus.validate(incoming_data):
                     # 把合法链的公共部分加入到本地区块链中
-                    blocktmp = self.Blockchain.AddChain(otherblock)
+                    blocktmp = self.Blockchain.AddChain(incoming_data)
                     # 找到最长链,或者区块高度相同但是性能更好的链
                     depthself = self.Blockchain.lastblock.BlockHeight()
-                    depthOtherblock = otherblock.BlockHeight()
+                    depthOtherblock = incoming_data.BlockHeight()
                     # 需要保证任务相同才能比较性能指标
                     if depthself < depthOtherblock or depthself == depthOtherblock \
-                        and otherblock.blockextra.task_id == \
+                        and incoming_data.blockextra.task_id == \
                             self.Blockchain.lastblock.blockextra.task_id \
-                        and otherblock.blockextra.metric > \
+                        and incoming_data.blockextra.metric > \
                             self.Blockchain.lastblock.blockextra.metric :
                         self.Blockchain.lastblock = blocktmp
                         new_update = True
+                        # 将当前miniblock_storage的内容放入pending list留存
+                        self.miniblock_pending_list.extend(self.miniblock_storage)
                         self.miniblock_storage = []
-                        message = self.test_set_published(self.Blockchain.lastblock.blockhead.prehash,
-                                                          self.Blockchain.lastblock.blockextra.task_id)
-                        if message:
-                            self.test_set_publication_channel.remove(message)
+                        # 移除旧的消息
+                        # message = self.test_set_published(self.Blockchain.lastblock.blockhead.prehash,
+                        #                                  self.Blockchain.lastblock.blockextra.task_id)
+                        # if message:
+                            # self.test_set_publication_channel.remove(message)
                         self.state = self.MinerState.MINING_MINIBLOCK
                 else:
                     logger.error("validation of block %s failure", 
-                                otherblock.name)  # 验证失败
+                                incoming_data.name)  # 验证失败
                     continue
-            if incoming_data.blockextra.is_miniblock:
-                if incoming_data.last.blockhead.blockhash == \
-                self.Blockchain.lastblock.blockhead.blockhash:
-                    self.miniblock_storage.append(incoming_data)
+        
+        new_list = []
+        for miniblock in self.miniblock_pending_list:
+            if miniblock.last in self.Blockchain:
+                if miniblock.last.blockhead.blockhash == \
+                self.Blockchain.lastblock.blockhead.blockhash and \
+                    miniblock not in self.miniblock_storage:
+                    # 只有获胜区块后续的miniblock可以放入miniblock_storage
+                    # 这些区块不会留在pending list
+                    self.miniblock_storage.append(miniblock)
+                    logger.info("%s moved from pending list to storage in Miner %d",
+                                 miniblock.name, self.Miner_ID)
+                    continue
+            if miniblock.blockhead.height >= self.Blockchain.lastblock.blockhead.height:
+                # 丢弃低于本地链高度的miniblock
+                # 保留miniblock接收记录，避免receiveBlock重复接收同一miniblock
+                new_list.append(miniblock)
+        dropped_miniblock_num = len(self.miniblock_pending_list)-len(new_list)
+        if dropped_miniblock_num > 0:
+            logger.info("%d miniblock(s) dropped from pending list of Miner %d",
+                        dropped_miniblock_num, self.Miner_ID)
+        self.miniblock_pending_list = new_list
 
         return self.Blockchain, new_update
     
