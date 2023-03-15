@@ -294,17 +294,19 @@ class TopologyNetwork(Network):
             f.write(']')
 
 
-    def set_net_param(self, readtype=None, TTL=None):
+    def set_net_param(self, gen_net_approach = None, TTL = None, save_routing_graph = None):
         """
         设置网络参数
-        param:  readtype: 读取csv文件类型, 'adj'为邻接矩阵, 'coo'为coo格式的稀疏矩阵   type:str ('adj'or'coo')
+        param:  gen_approach: 生成网络的方式, 'adj'为邻接矩阵, 'coo'为coo格式的稀疏矩阵   type:str ('adj'or'coo')
                 TTL: 区块的最大生存周期, 为了防止如孤立节点的存在, 或adversary日蚀攻击,
                     导致该块一直在网络中(所有节点都收到块才判定该块传播结束)            type:int    
         """
-        if readtype is not None:
-            self.generate_topology_from_csv(readtype)
+        if gen_net_approach is not None:
+            self.generate_topology_from_csv(gen_net_approach)
         if TTL is not None:
             self.TTL = TTL
+        if save_routing_graph is not None:
+            self.save_routing_graph = save_routing_graph
 
     def cal_delay(self, block, source_node_id, target_node_id):
         # 传输时延=块大小除带宽 且传输时延至少1轮
@@ -391,43 +393,16 @@ class TopologyNetwork(Network):
             for i, bp in enumerate(self.network_tape):
                 if len(set(bp.received_miners)) < self.MINER_NUM and bp.TTL > 0:
                     # ##判断是否都收到了####这一条代表仅适用于没有孤立节点或多个不相交子网的网络
-
                     trans_complete_links = []  # 记录已传播完成的链路
-
                     for j, [scm, tgm, delay] in enumerate(bp.next_miners_and_delays):
-                        # bp.next_miners_and_delays[j][2] -= 1
                         if delay <= 0:
                             trans_complete_links.append(j)
-                            # print(trans_complete_links)
-                            # 处理敌对玩家
-                            # if not self.miners[tgm].receiveBlock(bp.block) and self.miners[tgm].isAdversary:
-                            #     #received_miners中把所有ad加上
-                            #     for m,miner in enumerate(self.miners):
-                            #         if miner.isAdversary:
-                            #             bp.received_miners.append(m)
-                            #     #邻居节点中把敌对玩家去掉
-                            #     neighbor_not_ad=[n for n in self.miners[tgm].neighbor_list if not self.miners[n].isAdversary]
-                            #     neighbor_not_ad_delays=[]
-                            #     for n in neighbor_not_ad:
-                            #         neighbor_not_ad_delays.append(self.cal_delay(bp.block,tgm,n))
-
-                            #     #添加下一个节点
-                            #     bp.next_miners_and_delays.extend([tgm,nexttg,nextd] for nexttg, nextd in zip(neighbor_not_ad,neighbor_not_ad_delays))
-                            #     #记录路由
-                            #     bp.routing_histroy.update({(tgm,target):[round,round+1] for target in self.miners[tgm].neighbor_list})
-                            #     bp.routing_histroy.update({(tgm,target):[round,0] for target in neighbor_not_ad})
-                            #     bp.routing_histroy[(scm,tgm)][1]=round
-
-                            # 不是敌对玩家
-                            # if not self.miners[tgm].receiveBlock(bp.block) and not self.miners[tgm].isAdversary:
-
                             if self.miners[tgm].receiveBlock(bp.block):  # if the block not in local chain, addchain,
                                 bp.received_miners.append(tgm)
                                 self.normal_forward(scm, tgm, bp, round)  # 传播策略
                         else:
                             # print([bp.next_miners_and_delays for bp in self.network_tape])
                             bp.next_miners_and_delays[j][2] -= 1
-
                     bp.next_miners_and_delays = [n for j, n in enumerate(bp.next_miners_and_delays) if
                                                  j not in trans_complete_links]
                     trans_complete_links.clear()
@@ -583,22 +558,24 @@ class TopologyNetwork(Network):
         """
         读取Result->Network Routing文件夹下的routing_histroy.json,并将其转化为routing_gragh
         """
-        print('Generate routing gragh for each block from json...')
-        NET_RESULT_PATH = global_var.get_net_result_path()
-        with open(NET_RESULT_PATH / 'routing_history.json', 'r') as load_obj:
-            # a = json.load(load_obj)
-            a = json.load(load_obj)
-            for v_dict in a:
-                for blockname, origin_routing_dict in v_dict.items():
-                    if blockname != 'B0':
-                        for k, v in origin_routing_dict.items():
-                            if k == 'origin_miner':
-                                origin_miner = v
-                            if k == 'routing_histroy':
-                                rh = v
-                                rh = {tuple(eval(ki)): rh[ki] for ki, _ in rh.items()}
-                        self.gen_routing_gragh(blockname, rh, origin_miner)
-        print('Routing gragh finished')
+        if self.save_routing_graph == False:
+            print('Fail to generate routing gragh for each block from json.')
+        elif self.save_routing_graph == True:  
+            print('Generate routing gragh for each block from json...')
+            NET_RESULT_PATH = global_var.get_net_result_path()
+            with open(NET_RESULT_PATH / 'routing_history.json', 'r') as load_obj:
+                a = json.load(load_obj)
+                for v_dict in a:
+                    for blockname, origin_routing_dict in v_dict.items():
+                        if blockname != 'B0':
+                            for k, v in origin_routing_dict.items():
+                                if k == 'origin_miner':
+                                    origin_miner = v
+                                if k == 'routing_histroy':
+                                    rh = v
+                                    rh = {tuple(eval(ki)): rh[ki] for ki, _ in rh.items()}
+                            self.gen_routing_gragh(blockname, rh, origin_miner)
+            print('Routing gragh finished')
 
 
     def gen_routing_gragh(self, blockname, routing_histroy_single_block, origin_miner):

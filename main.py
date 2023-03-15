@@ -2,6 +2,7 @@ from Environment import Environment
 import time
 import logging
 import global_var
+import configparser
 
 
 def get_time(f):
@@ -13,21 +14,18 @@ def get_time(f):
         return res
     return inner
 
-
-n = 10  # number of miners
-t = 3   # maximum number of adversary
-q = 5
-
-target = '000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF'
-blocksize = 16
+config = configparser.ConfigParser()
+config.optionxform = lambda option: option
+config.read('system_config.ini',encoding='utf-8')
+print(config['EnvironmentSettings']['q'])
+environ_settings = dict(config['EnvironmentSettings'])
 
 global_var.__init__()
-global_var.set_consensus_type("consensus.PoW")
-# global_var.set_consensus_type("consensus.PoW")
-global_var.set_miner_num(n)
-global_var.set_network_type("network.TopologyNetwork")
-global_var.set_qmax(q)
-global_var.set_blocksize(blocksize)
+global_var.set_consensus_type(environ_settings['consensus_type'])
+global_var.set_network_type(environ_settings['network_type'])
+global_var.set_miner_num(int(environ_settings['miner_num']))
+global_var.set_qmax(int(environ_settings['q']))
+global_var.set_blocksize(int(environ_settings['blocksize']))
 global_var.set_show_fig(False)
 global_var.save_configuration()
 
@@ -35,16 +33,21 @@ global_var.save_configuration()
 logging.basicConfig(filename=global_var.get_result_path() / 'events.log',
                     level=global_var.get_log_level(), filemode='w')
 
-network_param = {'readtype': 'coo', 'TTL': 500}               # Topology网络参数
-#                                                               # =>readtype: 读取csv文件类型, 'adj'为邻接矩阵, 'coo'为coo格式的稀疏矩阵
-#                                                               # =>TTL: 区块的最大生存周期   
-adversary_ids = (5, 1, 7)     # use a tuple
-Z = Environment(t, q, target, network_param, *adversary_ids)
+adversary_ids = eval(environ_settings['adversary_ids'])
+network_param = {}
+if environ_settings['network_type'] == 'network.TopologyNetwork':
+    network_param = {'TTL':config.getint('TopologyNetworkSettings','TTL'),
+                     'gen_net_approach':config.get('TopologyNetworkSettings','gen_net_approach'),
+                     'save_routing_graph':config.getboolean('TopologyNetworkSettings','save_routing_graph')}
+elif environ_settings['network_type'] == 'network.BoundedDelayNetwork':
+    network_param = {k:float(v) for k,v in dict(config['BoundedDelayNetworkSettings'])}
+
+Z = Environment(int(environ_settings['t']), int(environ_settings['q']),environ_settings['target'], network_param, *adversary_ids)
 
 
 @get_time
 def run():
-    Z.exec(100000)
+    Z.exec(10000)
 
     Z.view()
 
