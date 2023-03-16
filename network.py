@@ -577,6 +577,32 @@ class TopologyNetwork(Network):
                             self.gen_routing_gragh(blockname, rh, origin_miner)
             print('Routing gragh finished')
 
+    def calculate_stats(self):
+        stats = {
+            "average_network_delay" : 0
+        }
+        delay_list = []
+        RECEIVED_RATIO = 1 # 网络中收到区块的矿工数量相对所有矿工数量之比如果超过这一常量，计算网络延迟
+        miner_num = len(self.miners)
+        NET_RESULT_PATH = global_var.get_net_result_path()
+        with open(NET_RESULT_PATH / 'routing_history.json', 'r') as load_obj:
+            a = json.load(load_obj)
+            for v_dict in a[1:]:
+                for _, origin_routing_dict in v_dict.items():
+                    routing_history = origin_routing_dict["routing_histroy"]
+                    miner_received = 0
+                    access_network_time = 0
+                    for transmision,time_span in routing_history.items():
+                        arrival_time = time_span[1]
+                        if tuple(eval(transmision))[0] == origin_routing_dict["origin_miner"]:
+                            access_network_time = time_span[0]
+                        if arrival_time:
+                            miner_received += 1
+                            if miner_received + 1>= miner_num * RECEIVED_RATIO:
+                                delay_list.append(arrival_time - access_network_time)
+        stats['average_network_delay'] = sum(delay_list)/len(delay_list)
+        return stats
+
 
     def gen_routing_gragh(self, blockname, routing_histroy_single_block, origin_miner):
         """
