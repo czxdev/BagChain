@@ -38,7 +38,9 @@ network_param = {}
 if environ_settings['network_type'] == 'network.TopologyNetwork':
     network_param = {'TTL':config.getint('TopologyNetworkSettings','TTL'),
                      'gen_net_approach':config.get('TopologyNetworkSettings','gen_net_approach'),
-                     'save_routing_graph':config.getboolean('TopologyNetworkSettings','save_routing_graph')}
+                     'save_routing_graph':config.getboolean('TopologyNetworkSettings','save_routing_graph'),
+                     'edge_prob':config.getfloat('TopologyNetworkSettings','edge_prob'),
+                     'show_label':config.getboolean('TopologyNetworkSettings','show_label')}
 elif environ_settings['network_type'] == 'network.BoundedDelayNetwork':
     network_param = {k:float(v) for k,v in dict(config['BoundedDelayNetworkSettings'])}
 
@@ -47,7 +49,7 @@ Z = Environment(int(environ_settings['t']), int(environ_settings['q']),environ_s
 
 @get_time
 def run():
-    Z.exec(10000)
+    Z.exec(int(environ_settings['total_round']))
 
     Z.view()
 

@@ -202,6 +202,7 @@ class Environment(object):
         network_stats = self.network.calculate_stats()
         print('Average network delay:',network_stats["average_network_delay"],'rounds')
 
+
         if self.network.__class__.__name__=='TopologyNetwork':
             self.network.gen_routing_gragh_from_json()
         # print_chain_property2txt(self.miners[9].Blockchain)
