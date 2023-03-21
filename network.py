@@ -4,6 +4,7 @@ import os
 import random
 import sys
 import logging
+import itertools
 from abc import ABCMeta, abstractmethod
 from math import ceil
 
@@ -402,6 +403,7 @@ class TopologyNetwork(Network):
                 errors.NetUnconnetedError, errors.NetGenError) as e:
             print(e); sys.exit(0)
     
+
     def save_network_attribute(self):
         network_attributes={
             'miner_num':self.MINER_NUM,
@@ -420,10 +422,16 @@ class TopologyNetwork(Network):
                 f.write(str(k)+': '+str(v)+'\n')
         print(network_attributes)
 
+
     def gen_network_rand(self, edge_prop):
         """采用Erdős-Rényi算法生成随机图"""
         self.network_graph = nx.gnp_random_graph(self.MINER_NUM, edge_prop)
-        
+        #将攻击者集团的各个矿工相连
+        for m1,m2 in itertools.combinations(range(self.MINER_NUM), 2):
+            if self.miners[m1].isAdversary and self.miners[m2].isAdversary:
+                if not self.network_graph.has_edge(m1,m2):
+                    self.network_graph.add_edge(m1,m2)
+        print(self.network_graph.edges)
         bandwidths = {(u,v):(4200000*10 if self.miners[u].isAdversary and  
                              self.miners[v].isAdversary else 4200000) for u,v in self.network_graph.edges}
         nx.set_edge_attributes(self.network_graph, bandwidths, "bandwidth")
@@ -497,7 +505,7 @@ class TopologyNetwork(Network):
         """
         展示和保存网络拓扑图self.network_graph
         """
-        plt.ion()
+        #plt.ion()
         self.draw_pos = nx.spring_layout(self.network_graph, seed=50)
         # plt.figure(figsize=(12,10))
         node_size=200*3/self.MINER_NUM**0.5
@@ -517,9 +525,9 @@ class TopologyNetwork(Network):
 
         RESULT_PATH = global_var.get_net_result_path()
         plt.savefig(RESULT_PATH / 'network topology.svg')
-        plt.pause(1)
+        #plt.pause(1)
         plt.close()
-        plt.ioff()
+        #plt.ioff()
 
 
     def write_routing_to_json(self, block_packet):

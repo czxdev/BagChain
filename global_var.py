@@ -18,7 +18,7 @@ def __init__():
     _var_dict = {}
     _var_dict['MINER_NUM']=0
     _var_dict['POW_TARFET']=''
-    _var_dict['POW_QMAX']=0
+    _var_dict['AVE_Q']=0
     _var_dict['CONSENSUS_TYPE']='consensus.PoW'
     _var_dict['NETWORK_TYPE']='network.FullConnectedNetwork'
     _var_dict['BLOCK_NUMBER'] = 0
@@ -58,12 +58,12 @@ def get_PoW_target():
     '''获得pow目标'''
     return _var_dict['POW_TARFET']
 
-def set_qmax(PoW_qmax):
+def set_ave_q(ave_q):
     '''定义pow,每round最多hash计算次数 type:int'''
-    _var_dict['POW_QMAX'] = PoW_qmax
-def get_qmax():
+    _var_dict['AVE_Q'] = ave_q
+def get_ave_q():
     '''获得pow,每round最多hash计算次数'''
-    return _var_dict['POW_QMAX']
+    return _var_dict['AVE_Q']
 
 def get_block_number():
     '''获得产生区块的独立编号'''

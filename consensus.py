@@ -73,7 +73,7 @@ class PoW(Consensus):
         self.target = target
         
 
-    def mining_consensus(self,Blockchain:Chain,Miner_ID,isadversary,x,qmax):
+    def mining_consensus(self,Blockchain:Chain,Miner_ID,isadversary,x,q):
         '''计算PoW\n
         param:
             Blockchain 该矿工维护的区块链 type:Chain
@@ -96,7 +96,7 @@ class PoW(Consensus):
             prehash = b_last.calculate_blockhash()
         currenthashtmp = hashsha256([prehash,x])    #要生成的块的哈希
         i = 0
-        while i < qmax:
+        while i < q:
             self.ctr = self.ctr+1
             # if self._ctr>=10000000:#计数器最大值
             #     self._ctr=0
@@ -189,7 +189,7 @@ class R3V(Consensus):
         #self.target = target
         self.target = hex(int(target,16)%self.group)[2:]
 
-    def mining_consensus(self,Blockchain:Chain,Miner_ID,isadversary,x,qmax):
+    def mining_consensus(self,Blockchain:Chain,Miner_ID,isadversary,x,q):
         '''计算VDF\n
         param:
             Blockchain 该矿工维护的区块链 type:Chain
@@ -232,7 +232,7 @@ class R3V(Consensus):
             alpha = 1
             alpha = alpha - abs((int(lastblock.name[1:])-0.3*x))*0.5
         '''    
-        while queryT <= qmax:
+        while queryT <= q:
             m = int(s,16)**2%self.group
             # print("s:{}".format(m))
             # print("Target:{}".format(int(self.target,16)))

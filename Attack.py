@@ -40,8 +40,8 @@ class Selfmining(Attack):
 
         self.base_chain = Chain()
 
-        # 不再补充设置qmax和target
-        self.qmax = self.Adver[0].qmax
+        # 不再补充设置q和target
+        self.q = self.Adver[0].q
         self.consensus = for_name(global_var.get_consensus_type())()
         self.consensus.setparam(target)
         # 从环境中提取共识 这里选择在Adver集团建立一个统一的共识对象 共享挖掘进度
@@ -142,7 +142,7 @@ class Selfmining(Attack):
 
     def Advermine(self):
         ''' Adver集团挖 '''
-        mine_power = len(self.Adver) * self.qmax
+        mine_power = len(self.Adver) * self.q
         Miner_ID = self.Adver[0].Miner_ID
         input = self.Advermine_input()
         newblock, mine_success = self.consensus.mining_consensus(self.base_chain,Miner_ID,\
@@ -320,11 +320,3 @@ class Selfmining(Attack):
         if self.round == self.num_rounds:
             self.attacklog2txt()
         # self.printchainlen()
-
- 
- 
- 
-
-    
-
-

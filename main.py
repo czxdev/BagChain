@@ -14,17 +14,18 @@ def get_time(f):
         return res
     return inner
 
+# 读取配置文件
 config = configparser.ConfigParser()
 config.optionxform = lambda option: option
 config.read('system_config.ini',encoding='utf-8')
-print(config['EnvironmentSettings']['q'])
 environ_settings = dict(config['EnvironmentSettings'])
 
+# 设置全局变量
 global_var.__init__()
 global_var.set_consensus_type(environ_settings['consensus_type'])
 global_var.set_network_type(environ_settings['network_type'])
 global_var.set_miner_num(int(environ_settings['miner_num']))
-global_var.set_qmax(int(environ_settings['q']))
+global_var.set_ave_q(int(environ_settings['q_ave']))
 global_var.set_blocksize(int(environ_settings['blocksize']))
 global_var.set_show_fig(False)
 global_var.save_configuration()
@@ -33,7 +34,7 @@ global_var.save_configuration()
 logging.basicConfig(filename=global_var.get_result_path() / 'events.log',
                     level=global_var.get_log_level(), filemode='w')
 
-adversary_ids = eval(environ_settings['adversary_ids'])
+# 设置网络参数
 network_param = {}
 if environ_settings['network_type'] == 'network.TopologyNetwork':
     network_param = {'TTL':config.getint('TopologyNetworkSettings','TTL'),
@@ -44,7 +45,13 @@ if environ_settings['network_type'] == 'network.TopologyNetwork':
 elif environ_settings['network_type'] == 'network.BoundedDelayNetwork':
     network_param = {k:float(v) for k,v in dict(config['BoundedDelayNetworkSettings'])}
 
-Z = Environment(int(environ_settings['t']), int(environ_settings['q']),environ_settings['target'], network_param, *adversary_ids)
+# 生成环境
+t = int(environ_settings['t'])
+q_ave = int(environ_settings['q_ave'])
+q_distr = environ_settings['q_distr']
+target = environ_settings['target']
+adversary_ids = eval(environ_settings['adversary_ids'])
+Z = Environment(t, q_ave, q_distr, target, network_param, *adversary_ids)
 
 
 @get_time

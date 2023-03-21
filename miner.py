@@ -17,10 +17,10 @@ import global_var
 class Miner(object):
 
    
-    def __init__(self, Miner_ID, qmax, target):
+    def __init__(self, Miner_ID, q, target):
         self.Miner_ID = Miner_ID #矿工ID
         self.isAdversary = False
-        self.qmax = qmax
+        self.q = q
         self.Blockchain = Chain()   # 维护的区块链
         #共识相关
         self.consensus = for_name(global_var.get_consensus_type())()    # 共识
@@ -89,7 +89,7 @@ class Miner(object):
             self.Blockchain.lastblock 挖出的新区块没有就返回none type:Block/None
             mine_success 挖矿成功标识 type:Bool
         '''
-        newblock, mine_success = self.consensus.mining_consensus(self.Blockchain,self.Miner_ID,self.isAdversary,self.input,self.qmax)
+        newblock, mine_success = self.consensus.mining_consensus(self.Blockchain,self.Miner_ID,self.isAdversary,self.input,self.q)
         if mine_success == True:
             self.Blockchain.AddBlock(newblock)
             self.Blockchain.lastblock = newblock
