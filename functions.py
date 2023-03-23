@@ -59,6 +59,17 @@ def targetG(p_per_round,miner_num,group,q):
     return hex(target)[2:]
 
 
+def target_adjust(difficulty):
+    '''
+    根据难度调整target前导零的数量,难度越大前导零越少
+    param:difficulty(float):0~1
+    return:target(str):256位的16进制数
+    '''
+    difficulty = difficulty
+    leading_zeros_num = int(difficulty * (64 - 1))  # 前导零数量
+    target = '0' * leading_zeros_num + 'F' * (64 - leading_zeros_num)  # 在前导零之前插入0字符
+    return target
+
  
 # global_var._init()
 # #global_var.set_consensus_type("dbprt")
