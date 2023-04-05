@@ -10,7 +10,6 @@ from BitcoinBackboneProtocol import BitcoinBackboneProtocol
 import numpy as np
 import pandas as pd
 import random
-from network import Network
 import time
 import math
 

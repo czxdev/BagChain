@@ -4,7 +4,6 @@ from external import I
 from miner import Miner
 from functions import for_name
 import global_var
-from network import Network
 import copy
 import time
 
@@ -29,7 +28,7 @@ class Attack(metaclass=ABCMeta):
  
 class Selfmining(Attack):
 
-    def __init__(self, globalchain:Chain, target, network:Network, Adversary:list, num_rounds) -> None:
+    def __init__(self, globalchain:Chain, target, network, Adversary:list, num_rounds) -> None:
         self.Adver = [Miner(0,0,0)]
         self.Adver = Adversary
         self.num_rounds = num_rounds
