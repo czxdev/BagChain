@@ -6,6 +6,8 @@
 /bin/
 /Results/
 /datasets/*
+experiment*
+plotting.ipynb
 
 **/__pycache__
 

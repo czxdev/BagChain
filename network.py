@@ -294,7 +294,7 @@ class TopologyNetwork(Network):
             f.write(']')
 
 
-    def set_net_param(self, readtype=None, TTL=None):
+    def set_net_param(self, readtype=None, TTL=None, matrix = None):
         """
         设置网络参数
         param:  readtype: 读取csv文件类型, 'adj'为邻接矩阵, 'coo'为coo格式的稀疏矩阵   type:str ('adj'or'coo')
@@ -302,7 +302,10 @@ class TopologyNetwork(Network):
                     导致该块一直在网络中(所有节点都收到块才判定该块传播结束)            type:int    
         """
         if readtype is not None:
-            self.generate_topology_from_csv(readtype)
+            if readtype == 'matrix':
+                self.generate_topology_from_matrix(matrix)
+            else:
+                self.generate_topology_from_csv(readtype)
         if TTL is not None:
             self.TTL = TTL
 
@@ -483,7 +486,26 @@ class TopologyNetwork(Network):
             print(e)
             sys.exit(0)
 
+    def generate_topology_from_matrix(self, matrix:np.matrix):
+        """
+        根据邻接矩阵生成网络拓扑，每个节点间带宽为4200000bit/round
+        """
+        self.tp_adjacency_matrix = matrix
+        self.network_graph = nx.Graph()
+        # self.network_graph.add_nodes_from(self.miners)
+        # self.network_graph.nodes
+        self.network_graph.add_nodes_from([i for i in range(self.MINER_NUM)])
+        for source_node in range(len(self.tp_adjacency_matrix)):  # 生成边
+            for target_node in range(source_node, len(self.tp_adjacency_matrix)):
+                if self.tp_adjacency_matrix[source_node, target_node] == 1:
+                    #    self.network_graph.add_edge(u,v,bandwidth=round(np.random.rand(),2))
+                    self.network_graph.add_edge(source_node, target_node, bandwidth=4200000)
+        # 邻居节点保存到各miner的neighbor_list中
+        for minerid in list(self.network_graph.nodes):
+            self.miners[minerid].neighbor_list = list(self.network_graph.neighbors(int(minerid)))
 
+        self.draw_and_save_network()
+        
     def generate_topology_from_csv(self, readtype='adj'):
         """
         根据csv文件的邻接矩'adj'或coo稀疏矩阵'coo'生成网络拓扑

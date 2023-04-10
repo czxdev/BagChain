@@ -2,7 +2,7 @@
 import copy
 import matplotlib.pyplot as plt
 import graphviz
-
+from enum import Enum
 from functions import hashG, hashH
 import global_var
 
@@ -41,24 +41,28 @@ class BlockHead(object):
 
 class Block(object):
     '''描述区块结构，实现区块哈希的计算'''
+    class BlockType(Enum):
+        '''定义区块类型'''
+        MINIBLOCK = 0
+        BLOCK = 1
+    
     class BlockExtra:
         '''描述blockextra中信息'''
-        def __init__(self,task_id=0, task_list=None, miniblock_hash=None, miniblock_list=None,
-                     metric=None, is_miniblock=False, model=None, model_hash=None,
-                     validation_hash=None, validation_list=None, validation_metric=None):
+        def __init__(self,task_id=0, task_list=None, task_queue = None, miniblock_hash=None, 
+                     miniblock_list=None, metric=None, blocktype=None, model=None, 
+                     model_hash=None, validate_metric=None):
             '''BlockExtra对象初始化'''
+            self.blocktype = blocktype or Block.BlockType.BLOCK # 记录区块类型
             self.task_id = task_id
             self.task_list = task_list or [] # 对于miniblock无效
+            self.task_queue = task_queue or []
             self.miniblock_hash = miniblock_hash
             self.miniblock_list = miniblock_list or []
             self.metric = metric
             # 以下记录与Miniblock有关的信息
-            self.is_miniblock = is_miniblock
             self.model_hash = model_hash # 用id(model)代替哈希
             self.model = model
-            self.validation_hash = validation_hash
-            self.validation_list = validation_list or []
-            self.validation_metric = validation_metric
+            self.validate_metric = validate_metric
 
         def __deepcopy__(self, memo):
             cls = self.__class__
@@ -67,12 +71,13 @@ class Block(object):
             for k,v in self.__dict__.items():
                 if cls.__name__ != "BlockExtra" or cls.__name__ == "BlockExtra" and \
                     k != "task_list" and k != "miniblock_list" and k != "model" and \
-                    k != "validation_list" and k != "miniblock_hash":
+                    k != "miniblock_hash" and k != "task_queue":
                     # 需要进行深复制的数据
                     setattr(result, k, copy.deepcopy(v, memo))
                 elif (k == "task_list" or k == "miniblock_list" or \
-                     k == "validation_list" or k == "miniblock_hash") and \
-                     cls.__name__ == "BlockExtra": # 对列表进行浅复制
+                     k == "miniblock_hash" or k == "task_queue") and \
+                     cls.__name__ == "BlockExtra":
+                    # 对列表进行浅复制
                     setattr(result, k, copy.copy(v))
                 else: # 对model引用不复制
                     setattr(result, k, v)
@@ -102,11 +107,10 @@ class Block(object):
         prehash = self.blockhead.prehash
         timestamp = self.blockhead.timestamp
         minerid = self.blockhead.miner
-        if self.blockextra.is_miniblock:
+        if self.blockextra.blocktype is self.BlockType.MINIBLOCK:
             model_hash = self.blockextra.model_hash
-            valid_hash = self.blockextra.validation_hash
-            valid_metric = self.blockextra.validation_metric
-            hash_content = [minerid, timestamp, model_hash, valid_hash, valid_metric, prehash]
+            preblock_metric = self.blockextra.validate_metric
+            hash_content = [minerid, timestamp, preblock_metric, model_hash, prehash]
         else: # 完整区块
             content = self.content
             miniblock_hash_list = self.blockextra.miniblock_hash
@@ -172,7 +176,7 @@ class Chain(object):
         input = 0
         # currenthash = hashH([Miner_ID, nonce, hashG([prehash, input])])
         task = global_var.get_global_task()
-        blockextra = Block.BlockExtra(None, [task])
+        blockextra = Block.BlockExtra(None, [task], [task,task])
         self.head = Block('B0', BlockHead(prehash, None, time, target, nonce, height, Miner_ID),
                           input, False,blockextra, True)
         self.head.blockhead.blockhash = self.head.calculate_blockhash()
@@ -291,7 +295,7 @@ class Chain(object):
 
         if not self.head:
             self.head = block
-            self.lastblock = block
+            # self.lastblock = block # 验证集发布前lastblock不变
             print("Add Block {} Successfully.".format(block.name))
             return block
 
@@ -299,7 +303,7 @@ class Chain(object):
             last_Block = self.LastBlock()
             last_Block.next.append(block)
             block.last = last_Block
-            self.lastblock = block
+            # self.lastblock = block # 验证集发布前lastblock不变
             # print("Add Block {} Successfully.".format(block.name))
             return block
 
@@ -475,10 +479,16 @@ class Chain(object):
                     dot.node(blocktmp.name,shape='rect',color='yellow',
                              label=blocktmp.name+':'+str(blocktmp.blockextra.metric))
                 # 建立Miniblock节点
+                show_validate_metric_flag = False
                 for miniblock in blocktmp.blockextra.miniblock_list:
                     if miniblock.name not in miniblock_name_list:
                         dot.node(miniblock.name, shape='rect', color='green')
-                        dot.edge(miniblock.last.name, miniblock.name)
+                        if show_validate_metric_flag or miniblock.last.isGenesis:
+                            dot.edge(miniblock.last.name, miniblock.name)
+                        else:
+                            dot.edge(miniblock.last.name, miniblock.name,
+                                     str(miniblock.blockextra.validate_metric))
+                            show_validate_metric_flag = True
                         miniblock_name_list.append(miniblock.name)
                     # 建立区块与miniblock的连接
                     dot.edge(miniblock.name, blocktmp.name)
@@ -512,10 +522,16 @@ class Chain(object):
                 else:
                     dot.node(blocktmp.name,shape='rect',color='yellow')
                 # 建立Miniblock节点
+                show_validate_metric_flag = False
                 for miniblock in blocktmp.blockextra.miniblock_list:
                     if miniblock.name not in miniblock_name_list:
                         dot.node(miniblock.name, shape='rect', color='green')
-                        dot.edge(miniblock.last.name, miniblock.name)
+                        if show_validate_metric_flag or miniblock.last.isGenesis:
+                            dot.edge(miniblock.last.name, miniblock.name)
+                        else:
+                            dot.edge(miniblock.last.name, miniblock.name,
+                                     str(miniblock.blockextra.validate_metric))
+                            show_validate_metric_flag = True
                         miniblock_name_list.append(miniblock.name)
                     # 建立区块与miniblock的连接
                     dot.edge(miniblock.name, blocktmp.name)
@@ -533,7 +549,8 @@ class Chain(object):
         for miniblock in complete_miniblock_list:
             if miniblock.name not in miniblock_name_list:
                 dot.node(miniblock.name, shape='rect', color='green')
-                dot.edge(miniblock.last.name, miniblock.name)
+                dot.edge(miniblock.last.name, miniblock.name,
+                         str(miniblock.blockextra.validate_metric))
         # 生成矢量图,展示结果
         dot.render(filename="blockchain_visualization_with_stale_miniblock",
                    directory=global_var.get_result_path() / "blockchain_visualization",
@@ -601,7 +618,7 @@ if __name__ == '__main__':
     block2.printblock()
 
     print(blocknew.calculate_blockhash())
-    blocknew.blockextra.is_miniblock = True
+    blocknew.blockextra.blocktype = Block.BlockType.MINIBLOCK
     print(blocknew.calculate_blockhash())
 
     print(Block.BlockExtra.__name__)

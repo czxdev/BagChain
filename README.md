@@ -24,7 +24,6 @@ python test.py
 - Miner.py: 矿工类与相关函数
 - chain.py: 包括块头、区块、区块链的类与相关函数
 - consensus.py: 抽象共识类、PoW类与相关函数
-- BitcoinBackboneProtocol.py: 核心共识函数
 - Network.py: 网络类，包括网络拓扑与传播相关的函数
 - Attack.py: 攻击者类与相关函数
 - functions.py: 包含计算哈希（SHA256）在内的一些函数

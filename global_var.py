@@ -8,17 +8,18 @@ import logging
 
 from task import Task
 
-def __init__():
+def __init__(result_path = None):
     '''
     初始化
     '''
     current_time = time.strftime("%Y%m%d-%H%M%S")
-    RESULT_PATH=Path.cwd() / 'Results' / current_time
+    RESULT_PATH=result_path or Path.cwd() / 'Results' / current_time
     RESULT_PATH.mkdir(parents=True)   
     NET_RESULT_PATH=RESULT_PATH / 'Network Results'
     NET_RESULT_PATH.mkdir()
     global _var_dict
     _var_dict = {}
+    # 区块链基本参数
     _var_dict['MINER_NUM']=0
     _var_dict['POW_TARFET']=''
     _var_dict['POW_QMAX']=0
@@ -30,18 +31,21 @@ def __init__():
     _var_dict['Attack'] = False
     _var_dict['Blocksize'] = 2
     _var_dict['MINIBLOCK_SIZE'] = 2
+    # 学习任务相关
     _var_dict['DATASET_PATH'] = Path.cwd() / 'datasets/mnist.npz'
     _var_dict['MODEL_TYPE'] = 'sklearn.tree.DecisionTreeClassifier'
     _var_dict['METRIC_EVALUTOR'] = 'sklearn.metrics.accuracy_score'
-    _var_dict['MINIMUM_METRIC'] = 0.844
-    _var_dict['BLOCK_METRIC_REQUIREMENT'] = 0.915
-    _var_dict['MINIBLOCK_NUM'] = 5
+    _var_dict['BLOCK_METRIC_REQUIREMENT'] = 0.91
+    # 系统参数
+    _var_dict['TEST_SET_INTERVAL'] = 90
+    _var_dict['VALIDATION_SET_INTERVAL'] = 180
+    _var_dict['TASK_QUEUE_LENGTH'] = 2
     _var_dict['BAG_SCALE'] = 0.5
     _var_dict['global_task'] = None # 需要在主程序中生成一个全局任务
     _var_dict['LOG_LEVEL'] = logging.INFO
     _var_dict['Show_Fig'] = False
     _var_dict['MINIBLOCK_COUNTER'] = {'B0':-1} # 迷你块计数器，以字典形式为每个块之后的miniblock计数
-    _var_dict['REDUNDANT_MINIBLOCK'] = 1 # 冗余miniblock数量，详情见Environment.py
+    
 
 def set_dataset_path(dataset_path):
     '''获取npz格式数据集的路径'''
@@ -67,14 +71,6 @@ def get_metric_evaluator():
     '''获得指标评估函数'''
     return _var_dict['METRIC_EVALUTOR']
 
-def set_mininum_metric(mininum_metric):
-    '''设置最低指标要求 type:float'''
-    _var_dict['MINIMUM_METRIC'] = mininum_metric
-
-def get_mininum_metric():
-    '''获得最低指标要求'''
-    return _var_dict['MINIMUM_METRIC']
-
 def set_block_metric_requirement(block_metric):
     '''设置区块指标要求'''
     _var_dict['BLOCK_METRIC_REQUIREMENT'] = block_metric
@@ -82,14 +78,29 @@ def set_block_metric_requirement(block_metric):
 def get_block_metric_requirement():
     '''获得区块指标要求'''
     return _var_dict['BLOCK_METRIC_REQUIREMENT']
+def set_test_set_interval(interval):
+    '''设置测试集发布时间间隔 type:int'''
+    _var_dict['TEST_SET_INTERVAL'] = interval
 
-def set_miniblock_num(miniblock_num):
-    '''设置miniblock数量 type:int'''
-    _var_dict['MINIBLOCK_NUM'] = miniblock_num
+def get_test_set_interval():
+    '''获得测试集发布时间间隔'''
+    return _var_dict['TEST_SET_INTERVAL']
 
-def get_miniblock_num():
-    '''获得miniblock数量'''
-    return _var_dict['MINIBLOCK_NUM']
+def set_validation_set_interval(interval):
+    '''设置验证集发布时间间隔 type:int'''
+    _var_dict['VALIDATION_SET_INTERVAL'] = interval
+
+def get_validation_set_interval():
+    '''获得验证集发布时间间隔'''
+    return _var_dict['VALIDATION_SET_INTERVAL']
+
+def set_task_queue_length(task_queue_length):
+    '''设置任务队列长度 type:int'''
+    _var_dict['TASK_QUEUE_LENGTH'] = task_queue_length
+
+def get_task_queue_length():
+    '''获得任务队列长度'''
+    return _var_dict['TASK_QUEUE_LENGTH']
 
 def set_bag_scale(bag_scale):
     '''设置有放回抽样集大小 type:float'''
@@ -151,25 +162,20 @@ def get_block_number():
     _var_dict['BLOCK_NUMBER'] = _var_dict['BLOCK_NUMBER'] + 1
     return _var_dict['BLOCK_NUMBER']
 
+def get_miniblock_num(pre_block_name:str):
+    '''获得某一block之后的miniblock数量'''
+    return _var_dict['MINIBLOCK_COUNTER'][pre_block_name]
+
 def get_miniblock_name(pre_block_name:str) -> str:
-    '''获得产生miniblock的名称'''
+    '''产生miniblock的名称'''
     # 检查pre_block_name的有效性
     pre_block_num = int(pre_block_name.split('B')[1])
     if pre_block_num > _var_dict['BLOCK_NUMBER']:
         raise Warning(f"Invalid block name:{pre_block_name}")
-    if pre_block_name not in _var_dict['MINIBLOCK_COUNTER']:
-        _var_dict['MINIBLOCK_COUNTER'][pre_block_name] = 0
-    else:
-        _var_dict['MINIBLOCK_COUNTER'][pre_block_name] += 1
+    _var_dict['MINIBLOCK_COUNTER'].setdefault(pre_block_name,-1)
+    _var_dict['MINIBLOCK_COUNTER'][pre_block_name] += 1
+    
     return f"{pre_block_name}-{_var_dict['MINIBLOCK_COUNTER'][pre_block_name]}"
-
-def set_redundant_miniblock(redundant_miniblock):
-    '''设置冗余miniblock数量'''
-    _var_dict['REDUNDANT_MINIBLOCK'] = redundant_miniblock
-
-def get_redundant_miniblock():
-    '''获取冗余miniblock数量'''
-    return _var_dict['REDUNDANT_MINIBLOCK']
 
 def get_result_path():
     return _var_dict['RESULT_PATH']

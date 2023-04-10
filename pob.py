@@ -14,13 +14,13 @@ from main import global_task_init,global_var_init
 def find_task_by_id(block:Block, task_id:int) -> Task:
     '''从block或者miniblock的前一区块中找到id与task_id相符的任务\n
     会预先检查block.last的哈希是否与prehash相匹配\n
-    Return:
+    return:
         tasks 找到的任务，如果为None，表明没有找到 type:Task
     '''
     # if block.blockhead.prehash == block.last.calculate_blockhash(): 区块哈希链的检查交给validate
-    for tasks in block.last.blockextra.task_list:
-        if id(tasks) == task_id:
-            return tasks
+    task = block.last.blockextra.task_queue[0]
+    if id(task) == task_id:
+        return task
     return None
 
 class PoB(Consensus):
@@ -32,6 +32,36 @@ class PoB(Consensus):
     def setparam(self):
         '''没有需要设置的参数'''
         return super().setparam()
+    
+    def validate_evaluate_miniblock(self, miniblock_list, current_task:Task,
+                                    dataset_type:Task.DatasetType):
+        '''检查miniblock合法性并验证整合后模型在指定数据集上的性能\n
+        param:
+            miniblock_list 携带模型信息的miniblock列表 type:list
+            current_task 当前任务 type:Task
+            dataset_type 测试集/验证集 type:Task.DatasetType
+        return:
+            metric 指定数据集上的性能指标'''
+        if dataset_type is Task.DatasetType.TEST_SET:
+            x, y = current_task.test_set
+        elif dataset_type is Task.DatasetType.VALIDATION_SET:
+            x, y = current_task.validation_set
+        y_pred_list = []
+        for miniblock in miniblock_list:
+            model, miniblock_valid = self.valid_miniblock(miniblock)
+            if not miniblock_valid:
+                return None
+            y_pred_list.append(model.predict(x))
+
+        # 模型整合/评估性能
+        y_pred = []
+        for i in range(len(x)):
+            predictions = [prediction[i] for prediction in y_pred_list]
+            joint_prediction = max(predictions, key=predictions.count)
+            y_pred.append(joint_prediction)
+        y_pred = np.array(y_pred)
+
+        return current_task.metric_evaluator(y,y_pred) # 评估模型集成之后的性能
 
     def validate(self, lastblock:Block):
         '''验证区块链合法性\n
@@ -47,7 +77,8 @@ class PoB(Consensus):
             raise ValueError(
                 'Blocks other than genesis block should have a valid lastblock')
 
-        if not lastblock or lastblock.blockextra.is_miniblock:
+        if not lastblock or \
+            lastblock.blockextra.blocktype is lastblock.BlockType.MINIBLOCK:
             raise TypeError('expect lastblock')
         blocktmp = lastblock
         prehash = blocktmp.blockhead.blockhash
@@ -77,11 +108,15 @@ class PoB(Consensus):
             raise ValueError(
                 'Blocks other than genesis block should have a valid lastblock')
 
-        if not block or block.blockextra.is_miniblock:
+        if not block or block.blockextra.blocktype is block.BlockType.MINIBLOCK:
             raise TypeError('expect block')
         current_task = find_task_by_id(block, block.blockextra.task_id)
         if current_task is None:
             return False
+
+        # 任务队列检查
+        if len(block.blockextra.task_queue) > global_var.get_task_queue_length():
+            raise Warning('Task queue in some block too long')
 
         # miniblock 哈希检查
         miniblock_list = block.blockextra.miniblock_list
@@ -97,25 +132,9 @@ class PoB(Consensus):
             if miniblock.blockhead.prehash != block.blockhead.prehash or \
             miniblock.blockextra.task_id != block.blockextra.task_id:
                 return False
-
-        # 检查miniblock合法性并验证整合后模型在测试集上的性能
-        x_test, y_test = current_task.test_set
-        y_test_pred_list = []
-        for miniblock in miniblock_list:
-            model, miniblock_valid = self.valid_miniblock(miniblock,True)
-            if not miniblock_valid:
-                return False
-            y_test_pred_list.append(model.predict(x_test))
-
-        # 模型整合/评估测试集性能
-        y_pred = []
-        for i in range(len(x_test)):
-            predictions = [x[i] for x in y_test_pred_list]
-            joint_prediction = max(predictions, key=predictions.count)
-            y_pred.append(joint_prediction)
-        y_pred = np.array(y_pred)
-
-        test_set_metric = current_task.metric_evaluator(y_test,y_pred) # 评估模型集成之后的性能
+        test_set_metric = self.validate_evaluate_miniblock(miniblock_list,
+                                                           current_task,
+                                                           Task.DatasetType.TEST_SET)
         # 检验测试集性能
         if test_set_metric < current_task.block_metric_requirement or \
         block.blockextra.metric != test_set_metric:
@@ -123,41 +142,25 @@ class PoB(Consensus):
 
         return True
 
-    def valid_miniblock(self, miniblock:Block, test_set_available:bool):
+    def valid_miniblock(self, miniblock:Block):
         '''验证miniblock的合法性\n
         param:
             miniblock 待检验的minkblock type:Block
-            test_set_available 测试集可用则为True type:block
         return:(pre_block, miniblock_valid)
             miniblock_model miniblock中的模型 type:Any
             miniblock_valid 如果为True表明miniblock有效  type:bool
         '''
-        if not miniblock or not miniblock.blockextra.is_miniblock:
+        if not miniblock or \
+            miniblock.blockextra.blocktype is not miniblock.BlockType.MINIBLOCK:
             raise TypeError('expect miniblock')
 
         current_task = find_task_by_id(miniblock, miniblock.blockextra.task_id)
         if current_task is None:
             return (None,False)
 
-        # 测试集发布后才能获得模型并评估模型性能
-        if test_set_available:
-            # 模型哈希以及验证集序号哈希检查
-            if miniblock.blockextra.model_hash != id(miniblock.blockextra.model) or \
-                miniblock.blockextra.validation_hash != hashsha256(miniblock.blockextra.validation_list):
-                return (None, False)
-            x_train, y_train= current_task.training_set
-            x_validation_set = x_train[miniblock.blockextra.validation_list]
-            y_validation_set = y_train[miniblock.blockextra.validation_list]
-            validation_pred = miniblock.blockextra.model.predict(x_validation_set)
-            real_metric = current_task.metric_evaluator(y_validation_set, 
-                                                        validation_pred)
-            if real_metric < current_task.minimum_metric or \
-            real_metric != miniblock.blockextra.validation_metric:
-                return (None, False)
-
         return (miniblock.blockextra.model, True)
 
-    def train(self, lastblock: Block, miner, is_adversary):
+    def train(self, lastblock: Block, miner, validate_metric, is_adversary):
         """
         从最新区块获得任务,训练产生弱模型并返回miniblock\n
         param:
@@ -167,10 +170,8 @@ class PoB(Consensus):
             new_miniblock 新的miniblock type:None(未产生有效miniblock)/Block
             training_success 训练成功标识 type:Bool
         """
-        # TODO 如果task_list中不止一个任务，可以改为获取费用最高的任务
-        current_task = lastblock.blockextra.task_list[0]
+        current_task = lastblock.blockextra.task_queue[0]
         model = current_task.model_constructor()
-        metric_evaluator = current_task.metric_evaluator
         x_train, y_train = current_task.training_set
         bag_scale = current_task.bag_scale
         # Bootstrap
@@ -179,23 +180,10 @@ class PoB(Consensus):
         target = y_train[indexes]
         # 训练
         model.fit(bag, target)
-        # 生成验证集
-        out_of_bag_sample_indexes = [x for x in range(len(x_train)) if x not in indexes]
-        validation_list = out_of_bag_sample_indexes # TODO 从袋外样本中随机选择一部分作为验证集，而不是所有袋外样本构成验证集
-        x_validation_set = x_train[validation_list]
-        y_validation_set = y_train[validation_list]
-        y_validation_predict = model.predict(x_validation_set)
-        validation_hash = hashsha256(validation_list)
-        validation_metric = metric_evaluator(y_validation_set, y_validation_predict)
-
-        # 判断性能指标是否符合最低性能要求
-        if validation_metric < current_task.minimum_metric:
-            return (None, False)
-
-        blockextra = Block.BlockExtra(id(current_task), lastblock.blockextra.task_list,
-                                      None, None, None, True,
-                                      model, id(model), validation_hash,
-                                      validation_list, validation_metric)
+        # 构造miniblock
+        blockextra = Block.BlockExtra(id(current_task), None, None, None, None,
+                                      None, lastblock.BlockType.MINIBLOCK,
+                                      model, id(model), validate_metric)
         # miniblock中继承上一个区块中的task_list
         blockhead = BlockHead(lastblock.blockhead.blockhash, None,
                               time.time_ns(), None, None, lastblock.blockhead.height+1, miner)
@@ -216,46 +204,33 @@ class PoB(Consensus):
             new_block 新区块 type:None(未挖出新块)/Block
             mining_success 挖矿成功标识 type:Bool
         """
-        # TODO miniblock_list中的miniblock具有不同的prehash或者不同task_id的情况，需要在Miner.Mining进行处置
+        # miniblock_list中的miniblock具有不同的prehash或者不同task_id的情况，需要在Miner.Mining进行处置
         # 根据ID找到任务
         current_task = find_task_by_id(miniblock_list[0], miniblock_list[0].blockextra.task_id)
         if current_task is None:
             return (None,False)
-        x_test,y_test = current_task.test_set
-        metric_evaluator = current_task.metric_evaluator
-        miniblock_num = current_task.miniblock_num
         minimum_metric = current_task.block_metric_requirement
-
-        # 抽取数量为miniblock_num的miniblock，用其中的模型在测试集上预测
-        # 由于miniblock_list的顺序也可能对性能指标产生影响，所以即使miniblock数量正好满足要求也要重新排序
-        miniblock_sampled_list = random.sample(miniblock_list, miniblock_num)
         
-        miniblock_preict = []
-        for miniblock in miniblock_sampled_list:
-            miniblock_preict.append(miniblock.blockextra.model.predict(x_test))
-
-        # 模型整合/评估测试集性能
-        y_pred = []
-        for i in range(len(x_test)):
-            predictions = [x[i] for x in miniblock_preict]
-            # 此处对于票数相同的两个类别可能会依max的实现方法出现不同结果，因此max的实现必须统一
-            joint_prediction = max(predictions, key=predictions.count)
-            y_pred.append(joint_prediction)
-        y_pred = np.array(y_pred)
-
-        metric = metric_evaluator(y_test,y_pred) # 评估模型集成之后的性能
+        # 评估模型集成之后的性能
+        metric = self.validate_evaluate_miniblock(miniblock_list,
+                                                  current_task,
+                                                  Task.DatasetType.TEST_SET)
         # 判断性能指标是否符合最低性能要求
         if metric < minimum_metric:
             return (None, False)
 
-        miniblock_hash = [miniblock.calculate_blockhash() for miniblock in miniblock_sampled_list]
+        miniblock_hash = [miniblock.calculate_blockhash() for miniblock in miniblock_list]
         blockhead = BlockHead(miniblock_list[0].blockhead.prehash, None, time.time_ns(),
                               None, None, miniblock_list[0].blockhead.height, miner)
-        # TODO 对下一个区块中的task_list进行处理，目前使用前一区块的任务组成当前区块的task_list
+        current_task_queue = miniblock_list[0].last.blockextra.task_queue
+        current_task_list = miniblock_list[0].last.blockextra.task_list
+        new_task_queue = current_task_queue[1:]
+        new_task_queue.append(current_task_list[0])
+
         blockextra = Block.BlockExtra(id(current_task),
-                                      copy.copy(miniblock_list[0].blockextra.task_list),
-                                      miniblock_hash, miniblock_sampled_list, metric,
-                                      False, None, None, None, None, None)
+                                      copy.copy(current_task_list), new_task_queue,
+                                      miniblock_hash, miniblock_list, metric,
+                                      Block.BlockType.BLOCK)
         new_block = Block(''.join(['B',str(global_var.get_block_number())]),
                           blockhead, content, is_adversary, blockextra,
                           False, global_var.get_blocksize())
@@ -264,8 +239,9 @@ class PoB(Consensus):
 
 # 对PoB类中的函数进行简单验证
 if __name__ == "__main__":
-    N = 5 # 矿工数量，不能小于miniblock的数量
-    global_var_init(N,5,16)
+    N = 3 # 矿工数量，不能小于miniblock的数量
+    global_var_init(N,5,16,2,None)
+    global_var.set_block_metric_requirement(0.85)
     global_task_init()
     print('Initialization finished')
     test_chain_1 = Chain()
@@ -275,7 +251,7 @@ if __name__ == "__main__":
     miniblock_list_test = []
     for miner_id in range(N):
         new_miniblock_test,training_success = consensus.train(test_chain_1.lastblock,
-                                                              miner_id, False)
+                                                              0,miner_id, False)
         if not training_success:
             raise Exception("Training failed for some reason")
         print('Miniblock from miner', miner_id, 'ready')
@@ -300,9 +276,14 @@ if __name__ == "__main__":
         test_chain_2.ShowLChain()
         test_chain_2.ShowStructure1()
         print('Block metric', test_chain_2.lastblock.blockextra.metric)
-        miniblock_metrics = [miniblock.blockextra.validation_metric for miniblock \
-                             in test_chain_2.lastblock.blockextra.miniblock_list]
-        print('Miniblock validation metric', miniblock_metrics)
+        print('Test set metric', consensus.validate_evaluate_miniblock(
+            test_chain_2.lastblock.blockextra.miniblock_list,
+            test_chain_2.lastblock.last.blockextra.task_queue[0],
+            Task.DatasetType.TEST_SET))
+        print('Validate set metric', consensus.validate_evaluate_miniblock(
+            test_chain_2.lastblock.blockextra.miniblock_list,
+            test_chain_2.lastblock.last.blockextra.task_queue[0],
+            Task.DatasetType.VALIDATION_SET))
 
     else:
         print("Validation of a new block failed")
