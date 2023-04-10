@@ -22,12 +22,12 @@ class Miner(object):
         MINING_MINIBLOCK = 1 # 收到区块开始尝试产生miniblock
         WAITING_MINIBLOCK = 2 # 等待来自其他矿工的miniblock
         PENDING_FOR_VALIDATION = 3 # 区块已经产生，等待验证当前高度区块
-
-    def __init__(self, Miner_ID, qmax, target):
+   
+    def __init__(self, Miner_ID, q, target):
         '''初始化'''
         self.Miner_ID = Miner_ID #矿工ID
         self.isAdversary = False
-        self.qmax = qmax
+        self.q = q
         self.Blockchain = Chain()   # 维护的区块链
         #共识相关
         self.consensus = for_name(global_var.get_consensus_type())()    # 共识
@@ -288,6 +288,9 @@ class Miner(object):
                 # 验证集发布后开始判断获胜区块
                 # 寻找当前高度上next中区块最多的块
                 fork_list = block.next
+                if len(fork_list) == 0:
+                    logger.warning("validation set published before any valid block received")
+                    break
                 best_block = fork_list[0]
                 best_block.blockextra.validate_metric = self.consensus.validate_evaluate_miniblock(
                                 best_block.blockextra.miniblock_list, current_task,
@@ -309,6 +312,7 @@ class Miner(object):
                 self.miniblock_storage = []
                 self.state = self.MinerState.MINING_MINIBLOCK
                 break # 一个高度上客户仅为一个任务发布数据集
+                      # 且任务队列已经保证当前高度上任务已经在若干个高度前确定
 
         new_list = []
         for miniblock in self.miniblock_pending_list:

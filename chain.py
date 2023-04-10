@@ -461,6 +461,7 @@ class Chain(object):
         plt.savefig(RESULT_PATH / 'blockchain visualisation.svg')
         if global_var.get_show_fig():
             plt.show()
+        plt.close()
 
     def ShowStructureWithGraphviz(self):
         '''借助Graphviz将区块链可视化'''

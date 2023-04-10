@@ -28,12 +28,14 @@ def get_time(f):
     return inner
 
 class Environment(object):
-    '''包括了整个仿真器的一切参数和数据，驱动仿真器的其余要素完成仿真任务'''
-    def __init__(self,  t, q, target,network_param,*adversary_ids):
+
+    def __init__(self,  t, q_ave, q_distr, target, network_param, *adversary_ids):
+        '''包括了整个仿真器的一切参数和数据，驱动仿真器的其余要素完成仿真任务'''
         #environment parameters
         self.miner_num = global_var.get_miner_num()  # number of miners
         self.max_adversary = t  # maximum number of adversary
-        self.qmax = q  # number of hash trials in a round
+        self.q_ave = q_ave  # number of hash trials in a round
+        self.q_distr = [] #
         self.target = target
         self.total_round = 0
         self.global_chain = Chain()  # a global tree-like data structure
@@ -47,10 +49,7 @@ class Environment(object):
         self.validation_set_metric = {} # versus block height Key:Height Value:Metric
         # generate miners
         self.miners = []
-        miner_i = 0
-        for _ in range(self.miner_num):
-            self.miners.append(Miner(miner_i, self.qmax, self.target))
-            miner_i = miner_i + 1
+        self.set_q_rand() if q_distr =='rand' else self.set_q_equal()
         self.adversary_mem = []
         self.select_adversary(*adversary_ids)
         # generate network
@@ -58,7 +57,7 @@ class Environment(object):
         print(
             '\nParameters:','\n',
             'Miner Number: ', self.miner_num,'\n',
-            'q: ', self.qmax, '\n',
+            'q_ave: ', self.q_ave, '\n', 
             'Adversary Miners: ', adversary_ids, '\n',
             'Consensus Protocol: ', global_var.get_consensus_type(), '\n',
             'Target: ', self.target, '\n',
@@ -97,7 +96,36 @@ class Environment(object):
         for adversary in self.adversary_mem:
             adversary.set_Adversary(False)
         self.adversary_mem=[]
+
+    def set_q_equal(self):
+        for miner_id in range(self.miner_num):
+            self.miners.append(Miner(miner_id, self.q_ave, self.target))
+
+    def set_q_rand(self):
+        '''
+        随机设置各个节点的hash rate,满足均值为q_ave,方差为1的高斯分布
+        且满足全网总算力为q_ave*miner_num
+        '''
+        # 生成均值为ave_q，方差为1的高斯分布
+        q_dist = np.random.normal(self.q_ave, self.miner_num)
+        # 归一化到总和为total_q，并四舍五入为整数
+        total_q = self.q_ave * self.miner_num
+        q_dist = total_q / np.sum(q_dist) * q_dist
+        q_dist = np.round(q_dist).astype(int)
+        # 修正，如果和不为total_q就把差值分摊在最小值或最大值上
+        if np.sum(q_dist) != total_q:
+            diff = total_q - np.sum(q_dist)
+            for _ in range(abs(diff)):
+                sign_diff = np.sign(diff)
+                idx = np.argmin(q_dist) if sign_diff > 0 else np.argmax(q_dist)
+                q_dist[idx] += sign_diff
+        for miner_id in range(self.miner_num):
+            for q in q_dist:
+                self.miners.append(Miner(miner_id, q, self.target))
+        return q_dist
+
         
+    #@get_time
     def exec(self, num_rounds):
         '''
         调用当前miner的BackboneProtocol完成mining
@@ -261,6 +289,10 @@ class Environment(object):
         self.global_chain.ShowStructureWithGraphviz()
         self.global_chain.ShowStructureWithGraphvizWithAllMiniblock(self.global_miniblock_list)
 
+        network_stats = self.network.calculate_stats()
+        print('Average network delay:',network_stats["average_network_delay"],'rounds')
+
+
         if self.network.__class__.__name__=='TopologyNetwork':
             pass # self.network.gen_routing_gragh_from_json() 由于生成路由图表占用大量时间空间，禁用
         # print_chain_property2txt(self.miners[9].Blockchain)
@@ -311,6 +343,6 @@ class Environment(object):
         time_cost = time.gmtime(time_len)
         vel = process/(time_len)
         time_eval = time.gmtime(total/(vel+0.001))
-        print("\r{}{}  {:.5f}%  {}/{}  {:.2f} round/s  {}:{}:{}>>{}:{}:{}  Events: see events.log     "\
+        print("\r{}{}  {:.5f}%  {}/{}  {:.2f} round/s  {}:{}:{}>>{}:{}:{}  Events: see events.log "\
         .format(cplt, uncplt, percent*100, process, total, vel, time_cost.tm_hour, time_cost.tm_min, time_cost.tm_sec,\
             time_eval.tm_hour, time_eval.tm_min, time_eval.tm_sec),end="", flush=True)

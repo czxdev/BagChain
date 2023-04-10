@@ -7,6 +7,7 @@ import logging
 # from sklearn.datasets import fetch_openml
 
 import global_var
+import configparser
 from Environment import Environment
 from functions import for_name
 from task import Task
@@ -26,7 +27,7 @@ def global_var_init(n, q, blocksize, miniblock_size, result_path):
     # global_var.set_consensus_type("consensus.PoW")
     global_var.set_miner_num(n)
     global_var.set_network_type("network.TopologyNetwork")
-    global_var.set_qmax(q)
+    global_var.set_ave_q(q)
     global_var.set_blocksize(blocksize)
     global_var.set_miniblock_size(miniblock_size)
     global_var.set_show_fig(False)
@@ -97,11 +98,11 @@ def main(
                         level=global_var.get_log_level(), filemode='w')
     
     matrix = np.ones([n,n]) - np.eye(n) # 构建全连接网络的邻接矩阵
-    network_param = {'readtype': 'matrix', 'TTL': 500, 'matrix': matrix}   # Topology网络参数
-    #                                                 # =>readtype: 读取csv文件类型, 'adj'为邻接矩阵, 'coo'为coo格式的稀疏矩阵
-    #                                                 # =>TTL: 区块的最大生存周期   
+    network_param = {'gen_net_approach': 'matrix', 'TTL': 500, 'matrix': matrix}   # Topology网络参数
+#                                                 # =>readtype: 读取csv文件类型, 'adj'为邻接矩阵, 'coo'为coo格式的稀疏矩阵
+#                                                 # =>TTL: 区块的最大生存周期   
     adversary_ids = ()     # no attacks
-    run(Environment(t, q, target, network_param, *adversary_ids), total_round)
+    run(Environment(t, q, 'equal', target, network_param, *adversary_ids), total_round)
 
 if __name__ == "__main__":
     main(300, 5, blocksize=2)
