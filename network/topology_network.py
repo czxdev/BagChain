@@ -207,7 +207,8 @@ class TopologyNetwork(Network):
                 self.gen_network_coo()
             elif gen_net_approach == 'rand' and edge_prop is not None:
                 self.gen_network_rand(edge_prop)
-            else:raise errors.NetGenError('网络生成方式错误！')
+            else:
+                raise errors.NetGenError('网络生成方式错误！')
             #检查是否有孤立节点或不连通部分
             if not nx.number_of_isolates(self.network_graph):
                 if nx.number_connected_components(self.network_graph) == 1:
@@ -220,7 +221,8 @@ class TopologyNetwork(Network):
                     self.save_network_attribute()
                 else:
                     raise errors.NetUnconnetedError('网络存在不连通部分!')
-            else:raise errors.NetIsoError(f'网络存在孤立节点! {list(nx.isolates(self.network_graph))}')
+            else:
+                raise errors.NetIsoError(f'网络存在孤立节点! {list(nx.isolates(self.network_graph))}')
         except (errors.NetMinerNumError, errors.NetAdjError, errors.NetIsoError, 
                 errors.NetUnconnetedError, errors.NetGenError) as error:
             print(error)

@@ -1,11 +1,14 @@
+import copy
 import random
+import time
+from abc import ABCMeta, abstractmethod
+
+import global_var
 from chain import Block, Chain
 from external import I
-from miner import Miner
 from functions import for_name
-import global_var
-import copy
-import time
+from miner import Miner
+
 
 def get_time(f):
 
@@ -17,7 +20,7 @@ def get_time(f):
         return res
     return inner
 
-from abc import ABCMeta, abstractmethod
+
 class Attack(metaclass=ABCMeta): 
 
     @abstractmethod
@@ -63,10 +66,10 @@ class Selfmining(Attack):
             # 将Adver从诚实节点中接受到的chain进行收集
             ''' 模仿诚实节点对adver集团内的attacker进行maxvalid '''
             for block in attacker.receive_tape:
-                if attacker.consensus.validate(block):
+                if attacker.consensus.valid_chain(block):
                     # attacker也要对接收到的block进行验证
                     # 如果验证成功添加到attacker的本地链上
-                    blocktmp = attacker.Blockchain.AddChain(block)
+                    blocktmp = attacker.Blockchain.add_block_copy(block)
                     depthself = attacker.Blockchain.lastblock.BlockHeight()
                     depthOtherblock = block.BlockHeight()
                     if depthself < depthOtherblock:
@@ -149,20 +152,20 @@ class Selfmining(Attack):
         #if self.consensus.ctr == 0:
             # print("self block")
             
-        if mine_success == True:
+        if mine_success is True:
             # self.mine_chain.AddBlock(newblock)
             # self.mine_chain.lastblock = newblock
             self.attacklog.append([self.round,''.join(['Selfly mine ',newblock.name,'\n',\
             'honest chain:',str(self.honest_chain.lastblock.BlockHeight()),'\n',\
             'self chain:',str(self.mine_chain.lastblock.BlockHeight()),'\n',\
             'base chain:',str(self.base_chain.lastblock.BlockHeight())])])
-            self.base_chain.AddBlock(newblock)
+            self.base_chain.add_block_direct(newblock)
             #self.base_chain.lastblock = newblock
             # 更新挖掘的base_chain
             self.mine_chain = copy.deepcopy(self.base_chain)
             #self.mine_chain.AddChain(newblock)
             # 挖掘的结果更新到mine_chain
-            self.globalchain.AddChain(newblock)
+            self.globalchain.add_block_copy(newblock)
         return newblock, mine_success  # 返回挖出的区块，
 
 

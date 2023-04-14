@@ -1,17 +1,20 @@
-from Attack import Attack, Selfmining
-from functions import for_name
-import global_var
-from consensus import Consensus
-from chain import Block, Chain
-from miner import Miner
-import network
-from external import V, I ,R , common_prefix, chain_quality, chain_growth, printchain2txt
-from BitcoinBackboneProtocol import BitcoinBackboneProtocol
-import numpy as np
-import pandas as pd
-import random
 import time
 import math
+import random
+from typing import List
+
+import numpy as np
+
+
+import global_var
+import network
+from chain import Chain
+from miner import Miner
+from Attack import Selfmining
+from functions import for_name
+from external import common_prefix, chain_quality, chain_growth, printchain2txt
+
+
 
 def get_time(f):
 
@@ -35,12 +38,12 @@ class Environment(object):
         self.total_round = 0
         self.global_chain = Chain()  # a global tree-like data structure
         # generate miners
-        self.miners = []
+        self.miners:List[Miner] = []
         self.set_q_rand() if q_distr =='rand' else self.set_q_equal()
-        self.adversary_mem = []
+        self.adversary_mem:List[Miner] = []
         self.select_adversary(*adversary_ids)
         # generate network
-        self.network = for_name(global_var.get_network_type())(self.miners)    #网络类型
+        self.network:network.Network = for_name(global_var.get_network_type())(self.miners)    #网络类型
         print(
             '\nParameters:','\n',
             'Miner Number: ', self.miner_num,'\n',
@@ -141,7 +144,7 @@ class Environment(object):
                     newblock = self.miners[i].BackboneProtocol(round)
                     if newblock is not None:
                         self.network.access_network(newblock,self.miners[i].Miner_ID,round)
-                        self.global_chain.AddChain(newblock)
+                        self.global_chain.add_block_copy(newblock)
                     self.miners[i].input_tape = []  # clear the input tape
                     self.miners[i].receive_tape = []  # clear the communication tape
             self.network.diffuse(round)  # diffuse(C)

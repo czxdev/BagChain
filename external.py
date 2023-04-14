@@ -1,9 +1,8 @@
-# external functions (V,I,R, etc)
-from itertools import chain
-from chain import Block, Chain, BlockHead
-from functions import hashH, hashG
-# from miner import Miner
+''' external functions (V,I,R, etc)'''
+from typing import List
+
 import global_var
+from chain import Block, Chain
 
 
 def V(xc:list):
@@ -72,7 +71,7 @@ def chain_quality(blockchain:Chain):
             blocktmp = blocktmp.last
     cq_dict = {'Honest Block':0,'Adversary Block':0}
     for item in xc:
-        if item==True:
+        if item is True:
             cq_dict.update({'Adversary Block':xc.count(item)})
         else:
             cq_dict.update({'Honest Block':xc.count(item)})
@@ -85,7 +84,7 @@ def chain_quality(blockchain:Chain):
 def chain_growth(blockchain:Chain):
     '''
     计算链成长指标
-    输入：blockchain
+    输入: blockchain
     输出：
     '''
     last_block = blockchain.LastBlock()
@@ -119,7 +118,7 @@ def printchain2txt(miner,chain_data_url='chain_data.txt'):
         print('\n',file=f)
 
         #打印链信息
-        q = [miner.Blockchain.head]
+        q:List[Block] = [miner.Blockchain.head]
         blocklist = []
         while q:
             block = q.pop(0)
@@ -136,6 +135,9 @@ def printchain2txt(miner,chain_data_url='chain_data.txt'):
             "timestamp:",block.blockhead.timestamp,'\n'
             "content:",block.content,'\n',
             "blocksize",block.blocksize_byte,'byte','\n',file=f)
+            if not block.blockextra:
+                for k,v in block.blockextra:
+                    print(f'{k}:',v,'\n',file=f)
             for i in block.next:
                 q.append(i)
         

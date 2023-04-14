@@ -1,15 +1,17 @@
 import copy
-import random
-import graphviz
+from typing import List
 
-from functions import hashG, hashH
+import graphviz
 import matplotlib.pyplot as plt
+
 import global_var
+from functions import hashG, hashH
 
 
 class BlockHead(object):
 
-    def __init__(self, prehash=None, blockhash=None, timestamp=None, target=None, nonce=None, height=None, Miner=None):
+    def __init__(self, prehash=None, blockhash=None, timestamp=None, target=None, 
+                 nonce=None, height=None, Miner=None):
         self.prehash = prehash  # 前一个区块的hash
         self.timestamp = timestamp  # 时间戳
         self.target = target  # 难度目标
@@ -21,27 +23,29 @@ class BlockHead(object):
         # 这里有个问题, blockhash靠blockhead自身是算不出来的
         # 块头里面应该包含content的哈希?(其实无所谓)
 
-    def printblockhead(self):
-        print("prehash:", self.prehash)
-        print("blockhash:", self.blockhash)
-        print("target:", self.target)
-        print("nouce:", self.nonce)
-        print("height:", self.height)
-        print("Miner:", self.miner)
-        print("timestamp:", self.timestamp)
+    # def printblockhead(self):
+    #     print("prehash:", self.prehash)
+    #     print("blockhash:", self.blockhash)
+    #     print("target:", self.target)
+    #     print("nouce:", self.nonce)
+    #     print("height:", self.height)
+    #     print("Miner:", self.miner)
+    #     print("timestamp:", self.timestamp)
 
-    def readlist(self):
-        return [self.prehash, self.timestamp, self.target, self.nonce, self.height, self.blockhash, self.miner]
+    # def readlist(self):
+    #     return [self.prehash, self.timestamp, self.target, 
+    #               self.nonce, self.height, self.blockhash, self.miner]
 
-    def readstr(self):
-        s = self.readlist()
-        data = ''.join([str(x) for x in s])
-        return data
+    # def readstr(self):
+    #     s = self.readlist()
+    #     data = ''.join([str(x) for x in s])
+    #     return data
 
 
 class Block(object):
 
-    def __init__(self, name=None, blockhead: BlockHead = None, content=None, isadversary=False, isgenesis=False, blocksize_MB=2):
+    def __init__(self, name=None, blockhead: BlockHead = None, content=None, 
+                 isadversary=False, isgenesis=False, blocksize_MB=2):
         self.name = name
         self.blockhead = blockhead
         self.isAdversaryBlock = isadversary
@@ -51,46 +55,9 @@ class Block(object):
         self.blockextra = {}  # 其他共识协议需要用的，使用字典添加
         self.isGenesis = isgenesis
         self.blocksize_byte = blocksize_MB * 1048576
-
-        # self.blocksize_byte = int(random.uniform(0.5, 2) * 1048576)  # 单位:byte 随机 0.5~1 MB
-
-    def calculate_blockhash(self):
-        '''
-        计算区块的hash
-        return:
-            hash type:str
-        '''
-        content = self.content
-        prehash = self.blockhead.prehash
-        nonce = self.blockhead.nonce
-        # target = self.blockhead.target
-        minerid = self.blockhead.miner
-        hash = hashH([minerid, nonce, hashG([prehash, content])])  # 计算哈希
-        return hash
-    
-    def printblock(self):
-        print('in_rom:', id(self))
-        print("blockname:", self.name)
-        self.blockhead.printblockhead()
-        print("content:", self.content)
-        print('isAdversaryBlock:', self.isAdversaryBlock)
-        print('next:', self.next)
-        print('last:', self.last, '\n')
-
-    def ReadBlockHead_list(self):
-        return self.blockhead.readlist()
-
-    def ReadBlocHead_str(self):
-        return self.blockhead.readstr()
-
-    def BlockHeight(self):
-        blocktmp = self
-        height = 0
-        while blocktmp and not blocktmp.isGenesis:
-            height = height + 1
-            blocktmp = blocktmp.last
-        return height
-
+        # self.blocksize_byte = int(random.uniform(0.5, 2) * 1048576)  
+        # 单位:byte 随机 0.5~1 MB
+        
     def __deepcopy__(self, memo):
         cls = self.__class__
         result = cls.__new__(cls)
@@ -105,6 +72,43 @@ class Block(object):
             if cls.__name__ != 'Block':
                 setattr(result, k, copy.deepcopy(v, memo))
         return result
+        
+    def calculate_blockhash(self):
+        '''
+        计算区块的hash
+        return:
+            hash type:str
+        '''
+        content = self.content
+        prehash = self.blockhead.prehash
+        nonce = self.blockhead.nonce
+        # target = self.blockhead.target
+        minerid = self.blockhead.miner
+        hash = hashH([minerid, nonce, hashG([prehash, content])])  # 计算哈希
+        return hash
+
+    def BlockHeight(self):
+        blocktmp = self
+        height = 0
+        while blocktmp and not blocktmp.isGenesis:
+            height = height + 1
+            blocktmp = blocktmp.last
+        return height
+
+    # def printblock(self):
+    #     print('in_rom:', id(self))
+    #     print("blockname:", self.name)
+    #     self.blockhead.printblockhead()
+    #     print("content:", self.content)
+    #     print('isAdversaryBlock:', self.isAdversaryBlock)
+    #     print('next:', self.next)
+    #     print('last:', self.last, '\n')
+
+    # def ReadBlockHead_list(self):
+    #     return self.blockhead.readlist()
+
+    # def ReadBlocHead_str(self):
+    #     return self.blockhead.readstr()
 
 
 class Chain(object):
@@ -119,8 +123,9 @@ class Chain(object):
         Miner_ID = -1  # 创世区块不由任何一个矿工创建
         input = 0
         currenthash = hashH([Miner_ID, nonce, hashG([prehash, input])])
-        self.head = Block('B0', BlockHead(prehash, currenthash, time, target, nonce, height, Miner_ID), input, False,
-                          True)
+        self.head = Block('B0', 
+                BlockHead(prehash, currenthash, time, target, nonce, height, Miner_ID),
+                input, False, True)
         self.head.blockhead.blockheadextra["value"] = 1  # 不加这一条 其他共识无法运行
         self.lastblock = self.head  # 指向最新区块，代表矿工认定的主链
 
@@ -168,7 +173,7 @@ class Chain(object):
             q.pop(0)
             q_o.pop(0)
         return copy_chain
-
+    
     def Search(self, block: Block, searchdepth=500):
         # 利用区块哈希，搜索某块是否存在(搜索树)
         # 存在返回区块地址，不存在返回None
@@ -227,7 +232,7 @@ class Chain(object):
             popb.last = None
             return popb
 
-    def AddBlock(self, block: Block, lastBlock: Block = None, nextBlock: Block = None):
+    def add_block_direct(self, block: Block, lastBlock: Block = None, nextBlock: Block = None):
         # 根据定位添加block，如果没有指定位置，加在最深的block后
         # 和AddChain的区别是这个是不拷贝直接连接的
         if self.Search(block):
@@ -249,7 +254,7 @@ class Chain(object):
             return block
 
 
-    def AddChain(self, lastblock: Block):
+    def add_block_copy(self, lastblock: Block):
         # 返回值：深拷贝插入完之后新插入链的块头
         receive_tmp = lastblock
         if not receive_tmp:  # 接受的链为空，直接返回
@@ -367,11 +372,11 @@ class Chain(object):
     def ShowStructure(self, miner_num=10):
         # 打印树状结构
         # 可能需要miner数量 也许放在这里不是非常合适？
-        fig = plt.figure()
+        plt.figure()
         blocktmp = self.head
         fork_list = []
         while blocktmp:
-            if blocktmp.isGenesis == False:
+            if blocktmp.isGenesis is False:
                 rd2 = blocktmp.content + blocktmp.blockhead.miner / miner_num
                 rd1 = blocktmp.last.content + blocktmp.last.blockhead.miner / miner_num
                 ht2 = blocktmp.blockhead.height
@@ -398,7 +403,6 @@ class Chain(object):
         plt.title('blockchain visualisation')
         plt.grid(True)
         RESULT_PATH = global_var.get_result_path()
-        f = open(RESULT_PATH / 'network_log.txt', 'a')
         plt.savefig(RESULT_PATH / 'blockchain visualisation.svg')
         if global_var.get_show_fig():
             plt.show()
@@ -411,7 +415,7 @@ class Chain(object):
         blocktmp = self.head
         fork_list = []
         while blocktmp:
-            if blocktmp.isGenesis == False:
+            if blocktmp.isGenesis is False:
                 # 建立区块节点
                 if blocktmp.isAdversaryBlock:
                     dot.node(blocktmp.name, shape='rect', color='red')
@@ -441,7 +445,7 @@ class Chain(object):
             blocktmp1 = blocktmp2.last
             stat.append(blocktmp2.content - blocktmp1.content)
             blocktmp2 = blocktmp1
-        fig = plt.hist(stat, bins=20, range=(0, max(stat)))
+        plt.hist(stat, bins=20, range=(0, max(stat)))
         plt.xlabel('Rounds')
         plt.ylabel('Times')
         plt.title('Block generation interval distribution')
@@ -485,13 +489,3 @@ class Chain(object):
         stats["fork_rate"] = stats["num_of_forks"] / stats["num_of_generated_blocks"]
         stats["stale_rate"] = stats["num_of_stale_blocks"] / stats["num_of_generated_blocks"]
         return stats
-
-
-if __name__ == '__main__':
-    blocknew = Block(1, BlockHead(111, 111, 111, 111, 111, 111, 1), 1, False)
-    blocknew.next = [1, 1, 1]
-    blocknew.last = 1
-    block2 = copy.deepcopy(blocknew)
-    blocknew.printblock()
-    block2.printblock()
-    print(Block.__name__)

@@ -1,6 +1,4 @@
-import copy
-from chain import Block, Chain, BlockHead
-import consensus
+from chain import Block, Chain
 from consensus import Consensus
 from functions import for_name
 from external import I
@@ -23,7 +21,7 @@ class Miner(object):
         self.q = q
         self.Blockchain = Chain()   # 维护的区块链
         #共识相关
-        self.consensus = for_name(global_var.get_consensus_type())()    # 共识
+        self.consensus:Consensus = for_name(global_var.get_consensus_type())()    # 共识
         self.consensus.setparam(target)                                 # 设置共识参数
         #输入内容相关
         self.input = 0          # 要写入新区块的值
@@ -50,7 +48,7 @@ class Miner(object):
     def isInLocalChain(self,block:Block):
         '''Check whether a block is in local chain,
         param: block: The block to be checked
-        return: flagInLocalChain: Flag whether the block is in local chain.If not, return False; else True.'''
+        return: flagInLocalChain: Flag whether the block is in local chain.'''
         flagInLocalChain=False
         if block not in self.Blockchain:
             flagInLocalChain=False
@@ -83,39 +81,18 @@ class Miner(object):
 
             
 
-    def Mining(self):
+    def mining(self):
         '''挖矿\n
         return:
             self.Blockchain.lastblock 挖出的新区块没有就返回none type:Block/None
             mine_success 挖矿成功标识 type:Bool
         '''
         newblock, mine_success = self.consensus.mining_consensus(self.Blockchain,self.Miner_ID,self.isAdversary,self.input,self.q)
-        if mine_success == True:
-            self.Blockchain.AddBlock(newblock)
+        if mine_success is True:
+            self.Blockchain.add_block_direct(newblock)
             self.Blockchain.lastblock = newblock
         return (newblock, mine_success)  # 返回挖出的区块，
     
-    def ValiChain(self, blockchain: Chain = None):
-        '''
-        检查是否满足共识机制\n
-        相当于原文的validate
-        输入:
-            blockchain 要检验的区块链 type:Chain
-            若无输入,则检验矿工自己的区块链
-        输出:
-            IsValid 检验成功标识 type:bool
-        '''
-        if blockchain==None:#如果没有指定链则检查自己
-            IsValid=self.consensus.validate(self.Blockchain.lastblock)
-            if IsValid:
-                print('Miner', self.Miner_ID, 'self_blockchain validated\n')
-            else:
-                print('Miner', self.Miner_ID, 'self_blockchain wrong\n')
-        else:
-            IsValid = self.consensus.validate(blockchain)
-            if not IsValid:
-                print('blockchain wrong\n')
-        return IsValid
 
     def maxvalid(self):
         # algorithm 2 比较自己的chain和收到的maxchain并找到最长的一条
@@ -125,8 +102,8 @@ class Miner(object):
         if self.receive_tape==[]:
             return self.Blockchain, new_update
         for otherblock in self.receive_tape:
-            if self.consensus.validate(otherblock):
-                blocktmp = self.Blockchain.AddChain(otherblock)  # 把合法链的公共部分加入到本地区块链中
+            if self.consensus.valid_chain(otherblock):
+                blocktmp = self.Blockchain.add_block_copy(otherblock)  # 把合法链的公共部分加入到本地区块链中
                 depthself = self.Blockchain.lastblock.BlockHeight()
                 depthOtherblock = otherblock.BlockHeight()
                 if depthself < depthOtherblock:
@@ -139,27 +116,34 @@ class Miner(object):
     def BackboneProtocol(self, round):
         chain_update, update_index = self.maxvalid()
         # if input contains READ:
-        # write R(Cnew) to OUTPUT() 这个output不知道干什么用的
+        # write R(Cnew) to OUTPUT() 这个output不知干什么用的道
         self.input = I(round, self.input_tape)  # I function
         #print("outer2",honest_miner.input)
-        newblock, mine_success = self.Mining()
+        newblock, mine_success = self.mining()
         #print("outer3",honest_miner.input)
         if update_index or mine_success:  # Cnew != C
             return newblock
         else:
             return None  #  如果没有更新 返回空告诉environment回合结束
-
-
-
-if __name__ =='__main__':
-    global_var.__init__()
-    miner1=Miner(1,2,3)
-    miner1.receive_buffer=[0,4,6]
-    list=[0,1,2,3,4,5,6]
-    miner1.receiveBlock(9)
-    print(miner1.receive_buffer)
-    print(miner1.receive_tape)
-    miner1.receiveBlock(9,4,1)
-    print(miner1.receive_buffer)
-    print(miner1.receive_tape)
-
+        
+    # def ValiChain(self, blockchain: Chain = None):
+    #     '''
+    #     检查是否满足共识机制\n
+    #     相当于原文的validate
+    #     输入:
+    #         blockchain 要检验的区块链 type:Chain
+    #         若无输入,则检验矿工自己的区块链
+    #     输出:
+    #         IsValid 检验成功标识 type:bool
+    #     '''
+    #     if blockchain is None:#如果没有指定链则检查自己
+    #         IsValid=self.consensus.valid_chain(self.Blockchain.lastblock)
+    #         if IsValid:
+    #             print('Miner', self.Miner_ID, 'self_blockchain validated\n')
+    #         else:
+    #             print('Miner', self.Miner_ID, 'self_blockchain wrong\n')
+    #     else:
+    #         IsValid = self.consensus.valid_chain(blockchain)
+    #         if not IsValid:
+    #             print('blockchain wrong\n')
+    #     return IsValid
