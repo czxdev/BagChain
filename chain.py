@@ -114,19 +114,8 @@ class Block(object):
 class Chain(object):
 
     def __init__(self):
-        # Create a genesis block
-        prehash = 0
-        time = 0
-        target = 'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF'
-        nonce = 0
-        height = 0
-        Miner_ID = -1  # 创世区块不由任何一个矿工创建
-        input = 0
-        currenthash = hashH([Miner_ID, nonce, hashG([prehash, input])])
-        self.head = Block('B0', 
-                BlockHead(prehash, currenthash, time, target, nonce, height, Miner_ID),
-                input, False, True)
-        self.head.blockhead.blockheadextra["value"] = 1  # 不加这一条 其他共识无法运行
+
+        self.head = None
         self.lastblock = self.head  # 指向最新区块，代表矿工认定的主链
 
     def __contains__(self, block: Block):
@@ -174,7 +163,26 @@ class Chain(object):
             q_o.pop(0)
         return copy_chain
     
-    def Search(self, block: Block, searchdepth=500):
+    def create_genesis_block(self, **blockextra):
+        prehash = 0
+        time = 0
+        target = 'FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF'
+        nonce = 0
+        height = 0
+        Miner_ID = -1  # 创世区块不由任何一个矿工创建
+        input = 0
+        currenthash = hashH([Miner_ID, nonce, hashG([prehash, input])])
+        self.head = Block('B0', 
+                BlockHead(prehash, currenthash, time, target, nonce, height, Miner_ID),
+                input, False, True)
+        self.head.blockhead.blockheadextra["value"] = 1  # 不加这一条 其他共识无法运行
+        if blockextra:
+            self.head.blockextra.update(blockextra)
+        self.lastblock = self.head
+
+        
+    
+    def search(self, block: Block, searchdepth=500):
         # 利用区块哈希，搜索某块是否存在(搜索树)
         # 存在返回区块地址，不存在返回None
         if not self.head or not block:
@@ -198,7 +206,7 @@ class Chain(object):
                 q.append(i)
         return None
 
-    def SearchChain(self, block: Block, searchdepth=500):
+    def search_chain(self, block: Block, searchdepth=500):
         # 利用区块哈希，搜索某块是否在链上
         # 存在返回区块地址，不存在返回None
         if not self.head:
@@ -212,10 +220,10 @@ class Chain(object):
             i = i + 1
         return None
 
-    def LastBlock(self):  # 返回最深的block，空链返回None
+    def last_block(self):  # 返回最深的block，空链返回None
         return self.lastblock
 
-    def Isempty(self):
+    def is_empty(self):
         if not self.head:
             print("Chain Is empty")
             return True
@@ -223,7 +231,7 @@ class Chain(object):
             return False
 
     def Popblock(self):
-        popb = self.LastBlock()
+        popb = self.last_block()
         last = popb.last
         if not last:
             return None
@@ -235,7 +243,7 @@ class Chain(object):
     def add_block_direct(self, block: Block, lastBlock: Block = None, nextBlock: Block = None):
         # 根据定位添加block，如果没有指定位置，加在最深的block后
         # 和AddChain的区别是这个是不拷贝直接连接的
-        if self.Search(block):
+        if self.search(block):
             print("Block {} is already included.".format(block.name))
             return block
 
@@ -246,7 +254,7 @@ class Chain(object):
             return block
 
         if not lastBlock and not nextBlock:
-            last_Block = self.LastBlock()
+            last_Block = self.last_block()
             last_Block.next.append(block)
             block.last = last_Block
             self.lastblock = block
@@ -260,11 +268,11 @@ class Chain(object):
         if not receive_tmp:  # 接受的链为空，直接返回
             return None
         copylist = []  # 需要拷贝过去的区块list
-        local_tmp = self.Search(receive_tmp)
+        local_tmp = self.search(receive_tmp)
         while receive_tmp and not local_tmp:
             copylist.append(receive_tmp)
             receive_tmp = receive_tmp.last
-            local_tmp = self.Search(receive_tmp)
+            local_tmp = self.search(receive_tmp)
         if local_tmp:
             while copylist:
                 receive_tmp = copylist.pop()
@@ -314,7 +322,7 @@ class Chain(object):
 
     def InversShowBlock(self, block: Block = None):
         # 按指定块为起始逆向打印块名，若未指定块从最深的块开始，返回逆序的链
-        cur = self.LastBlock()
+        cur = self.last_block()
         blocklist = []
         while cur:
             # print(cur.name)
@@ -438,7 +446,7 @@ class Chain(object):
         dot.render(directory=global_var.get_result_path() / "blockchain_visualization",
                    format='svg', view=global_var.get_show_fig())
 
-    def Get_block_interval_distribution(self):
+    def get_block_interval_distribution(self):
         stat = []
         blocktmp2 = self.lastblock
         while not blocktmp2.isGenesis:
@@ -489,3 +497,37 @@ class Chain(object):
         stats["fork_rate"] = stats["num_of_forks"] / stats["num_of_generated_blocks"]
         stats["stale_rate"] = stats["num_of_stale_blocks"] / stats["num_of_generated_blocks"]
         return stats
+    
+if __name__ == "__main__":
+    def print_kargs(k1,k2,**kargs):
+        print(k1,k2)
+        k1.update({'value':1})
+        k2.update({'value':1})
+        print(kargs)
+        if kargs:
+            k1.update(copy.deepcopy(kargs))
+            k2.update(kargs)
+        print(k1,k2)
+        # print(kl)
+        # print(1)
+        # for k,v in kl.items():
+        #     print(f'{k}:{v}')
+        # print(2)
+        # for k,v in klv.items():
+        #     print(f'{k}:{v}')
+    
+    k1 = {}
+    k2 = {}
+
+    k = {"nname":"B0",
+         "blcao":101,
+         "block":{
+            "b": "cccc",
+            "a": 1111
+         }
+         }
+    print_kargs(k1,k2)
+    print(k1,k2)
+    k.popitem()
+    print(k)
+    print(k1,k2)

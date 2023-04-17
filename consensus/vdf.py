@@ -63,7 +63,7 @@ class VDF(Consensus):
             挖矿成功标识    type:bool
         '''
         bctemp = Blockchain
-        b_last = bctemp.LastBlock()#链中最后一个块
+        b_last = bctemp.last_block()#链中最后一个块
         height = b_last.blockhead.height
         prehashtmp = b_last.calculate_blockhash()
         # 每轮mine q次前都要看看现在最新的块是不是自己正在挖的

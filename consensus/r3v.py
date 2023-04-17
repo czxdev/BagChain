@@ -63,11 +63,11 @@ class R3V(Consensus):
         if Blockchain.lastblock.name == 'B0':
             s = 0            
             Blockchain.lastblock.blockhead.blockheadextra.setdefault("s",s)
-            lastblock = Blockchain.LastBlock()
+            lastblock = Blockchain.last_block()
             height = lastblock.blockhead.height
             prehash = lastblock.calculate_blockhash()
         else:
-            lastblock = Blockchain.LastBlock()
+            lastblock = Blockchain.last_block()
             s = lastblock.blockhead.blockheadextra["s"]
             height = lastblock.blockhead.height
             prehash = lastblock.calculate_blockhash()

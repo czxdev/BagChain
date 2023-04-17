@@ -1,3 +1,4 @@
+import copy
 import time
 import math
 import random
@@ -28,7 +29,7 @@ def get_time(f):
 
 class Environment(object):
 
-    def __init__(self,  t, q_ave, q_distr, target, network_param, *adversary_ids):
+    def __init__(self,  t = None, q_ave = None, q_distr = None, target = None, network_param = None, *adversary_ids, **genesis_blockextra):
         #environment parameters
         self.miner_num = global_var.get_miner_num()  # number of miners
         self.max_adversary = t  # maximum number of adversary
@@ -39,7 +40,9 @@ class Environment(object):
         self.global_chain = Chain()  # a global tree-like data structure
         # generate miners
         self.miners:List[Miner] = []
-        self.set_q_rand() if q_distr =='rand' else self.set_q_equal()
+        self.create_miners_q_rand() if q_distr =='rand' else self.create_miners_q_equal()
+        print(genesis_blockextra)
+        self.envir_create_genesis_block(**genesis_blockextra)
         self.adversary_mem:List[Miner] = []
         self.select_adversary(*adversary_ids)
         # generate network
@@ -67,9 +70,10 @@ class Environment(object):
         '''
         self.adversary_mem=random.sample(self.miners,self.max_adversary)
         for adversary in self.adversary_mem:
-            adversary.set_Adversary(True)
+            adversary.set_adversary(True)
         return self.adversary_mem
-    
+
+
     def select_adversary(self,*Miner_ID):
         '''
         根据指定ID选择对手
@@ -77,20 +81,20 @@ class Environment(object):
         '''   
         for miner in Miner_ID:
             self.adversary_mem.append(self.miners[miner])
-            self.miners[miner].set_Adversary(True)
+            self.miners[miner].set_adversary(True)
         return self.adversary_mem
     
     def clear_adversary(self):
         '''清空所有对手'''
         for adversary in self.adversary_mem:
-            adversary.set_Adversary(False)
+            adversary.set_adversary(False)
         self.adversary_mem=[]
 
-    def set_q_equal(self):
+    def create_miners_q_equal(self):
         for miner_id in range(self.miner_num):
             self.miners.append(Miner(miner_id, self.q_ave, self.target))
 
-    def set_q_rand(self):
+    def create_miners_q_rand(self):
         '''
         随机设置各个节点的hash rate,满足均值为q_ave,方差为1的高斯分布
         且满足全网总算力为q_ave*miner_num
@@ -112,15 +116,25 @@ class Environment(object):
             for q in q_dist:
                 self.miners.append(Miner(miner_id, q, self.target))
         return q_dist
+    
+
+    def envir_create_genesis_block(self, **blockextra):
+        '''create genesis block for all the miners in the system.'''
+        self.global_chain.create_genesis_block(**blockextra)
+        for miner in self.miners:
+            miner.Blockchain.create_genesis_block(**blockextra)
 
         
     #@get_time
     def exec(self, num_rounds):
+
         '''
         调用当前miner的BackboneProtocol完成mining
         当前miner用addblock功能添加上链
         之后gobal_chain用深拷贝的addchain上链
         '''
+        for miner in self.miners:
+            print(miner.Blockchain.head)
         if self.adversary_mem:
             attack = Selfmining(self.global_chain, self.target, self.network, self.adversary_mem, num_rounds)
         t_0 = time.time()

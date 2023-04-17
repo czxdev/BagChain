@@ -1,6 +1,7 @@
 import copy
 import random
 import time
+from typing import List
 from abc import ABCMeta, abstractmethod
 
 import global_var
@@ -31,16 +32,16 @@ class Attack(metaclass=ABCMeta):
  
 class Selfmining(Attack):
 
-    def __init__(self, globalchain:Chain, target, network, Adversary:list, num_rounds) -> None:
-        self.Adver = [Miner(0,0,0)]
+    def __init__(self, globalchain:Chain, target, network, Adversary:List[Miner], num_rounds) -> None:
         self.Adver = Adversary
         self.num_rounds = num_rounds
 
-        self.mine_chain = Chain()
+        self.mine_chain = copy.deepcopy(globalchain)
 
-        self.honest_chain = Chain()
+        self.honest_chain = copy.deepcopy(globalchain)
 
-        self.base_chain = Chain()
+        self.base_chain = copy.deepcopy(globalchain)
+
 
         # 不再补充设置q和target
         self.q = self.Adver[0].q

@@ -32,12 +32,11 @@ class Miner(object):
         self.buffer_size = 3
         #网络相关
         self.neighbor_list = []
-        self.otherchain = Chain()
         self.processing_delay=0    #处理时延
 
     
 
-    def set_Adversary(self, isAdversary:bool):
+    def set_adversary(self, isAdversary:bool):
         '''
         设置是否为对手节点
         isAdversary=True为对手节点
@@ -45,7 +44,7 @@ class Miner(object):
         self.isAdversary = isAdversary
 
 
-    def isInLocalChain(self,block:Block):
+    def is_in_local_chain(self,block:Block):
         '''Check whether a block is in local chain,
         param: block: The block to be checked
         return: flagInLocalChain: Flag whether the block is in local chain.'''
@@ -57,7 +56,7 @@ class Miner(object):
         return flagInLocalChain
 
 
-    def receiveBlock(self,rcvblock:Block):
+    def receive_block(self,rcvblock:Block):
         '''Interface between network and miner.
         Append the rcvblock(have not received before) to receive_tape, and add to local chain in the next round. 
         param: rcvblock: The block received from network. Type: Block
@@ -75,11 +74,6 @@ class Miner(object):
             flagNotRecBlockBefore = False
         return flagNotRecBlockBefore
 
-    def sendBlock(self, to,sendblock:Block):
-        for nb in self.neighbor_list:
-            pass
-
-            
 
     def mining(self):
         '''挖矿\n
@@ -91,8 +85,8 @@ class Miner(object):
         if mine_success is True:
             self.Blockchain.add_block_direct(newblock)
             self.Blockchain.lastblock = newblock
-        return (newblock, mine_success)  # 返回挖出的区块，
-    
+        return newblock, mine_success  # 返回挖出的区块，
+
 
     def maxvalid(self):
         # algorithm 2 比较自己的chain和收到的maxchain并找到最长的一条
@@ -112,6 +106,7 @@ class Miner(object):
             else:
                 print('error')  # 验证失败没必要脱出错误
         return self.Blockchain, new_update
+    
     
     def BackboneProtocol(self, round):
         chain_update, update_index = self.maxvalid()

@@ -34,12 +34,11 @@ class PoW(Consensus):
         '''
         pow_success = False
         #print("mine",Blockchain)
-        if Blockchain.Isempty():#如果区块链为空
+        if Blockchain.is_empty():#如果区块链为空
             prehash = 0
             height = 0
         else:
-            bctemp = Blockchain
-            b_last = bctemp.LastBlock()#链中最后一个块
+            b_last = Blockchain.last_block()#链中最后一个块
             height = b_last.blockhead.height
             prehash = b_last.calculate_blockhash()
         currenthashtmp = hashsha256([prehash,x])    #要生成的块的哈希

@@ -48,7 +48,7 @@ def R(blockchain:Chain):
 
 def common_prefix(prefix1:Block, chain2:Chain):
     while prefix1:
-        if chain2.SearchChain(prefix1):
+        if chain2.search_chain(prefix1):
             break
         else:
             prefix1 = prefix1.last
@@ -64,7 +64,7 @@ def chain_quality(blockchain:Chain):
     if not blockchain.head:
         xc = []
     else:
-        blocktmp = blockchain.LastBlock()
+        blocktmp = blockchain.last_block()
         xc = []
         while blocktmp:
             xc.append(blocktmp.isAdversaryBlock)
@@ -87,7 +87,7 @@ def chain_growth(blockchain:Chain):
     输入: blockchain
     输出：
     '''
-    last_block = blockchain.LastBlock()
+    last_block = blockchain.last_block()
     return last_block.BlockHeight()
 
 
