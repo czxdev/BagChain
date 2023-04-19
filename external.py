@@ -136,9 +136,7 @@ def printchain2txt(miner,chain_data_url='chain_data.txt'):
             "timestamp:",block.blockhead.timestamp,'\n'
             "content:",block.content,'\n',
             "blocksize",block.blocksize_byte,'byte','\n'
-            "metric:",block.blockextra.metric,'\n',
-            "miniblocks:",[miniblock.name for miniblock in \
-                           block.blockextra.miniblock_list],'\n',file=f)
+            "metric:",block.blockextra.metric,'\n','\n',file=f)
             for i in block.next:
                 q.append(i)
         

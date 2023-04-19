@@ -21,7 +21,7 @@ def get_time(f):
         return res
     return inner
 
-def global_var_init(n, q, blocksize, miniblock_size, result_path):
+def global_var_init(n, q, blocksize, miniblock_size, result_path = None):
     global_var.__init__(result_path)
     global_var.set_consensus_type("pob.PoB")
     # global_var.set_consensus_type("consensus.PoW")
@@ -89,6 +89,7 @@ def main(
     # 根据区块与miniblock大小确定测试/验证集发布间隔
     global_var.set_test_set_interval(5*miniblock_size)
     global_var.set_validation_set_interval(5*(miniblock_size + blocksize))
+    global_var.set_ensemble_block_num(20)
     global_var.set_log_level(logging.INFO)
     global_var.save_configuration()
     global_task_init()
@@ -105,4 +106,4 @@ def main(
     run(Environment(t, q, 'equal', target, network_param, *adversary_ids), total_round)
 
 if __name__ == "__main__":
-    main(300, 5, blocksize=2)
+    main(200, 5, blocksize=2)

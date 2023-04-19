@@ -3,9 +3,10 @@ import copy
 import matplotlib.pyplot as plt
 import graphviz
 from enum import Enum
+
+from task import Task
 from functions import hashG, hashH
 import global_var
-
 
 class BlockHead(object):
 
@@ -44,25 +45,29 @@ class Block(object):
     class BlockType(Enum):
         '''定义区块类型'''
         MINIBLOCK = 0
-        BLOCK = 1
+        BLOCK = 1 # represent ensemble block
+        KEY_BLOCK = 2
     
     class BlockExtra:
         '''描述blockextra中信息'''
         def __init__(self,task_id=0, task_list=None, task_queue = None, miniblock_hash=None, 
                      miniblock_list=None, metric=None, blocktype=None, model=None, 
-                     model_hash=None, validate_metric=None):
+                     model_hash=None, validate_list=None, ensemble_block_list = None):
             '''BlockExtra对象初始化'''
-            self.blocktype = blocktype or Block.BlockType.BLOCK # 记录区块类型
+            self.blocktype = blocktype or Block.BlockType.KEY_BLOCK # 记录区块类型
             self.task_id = task_id
-            self.task_list = task_list or [] # 对于miniblock无效
-            self.task_queue = task_queue or []
-            self.miniblock_hash = miniblock_hash
-            self.miniblock_list = miniblock_list or []
+            # 以下为与Ensemble Block相关数据
+            self.miniblock_hash:list[str] = miniblock_hash
+            self.miniblock_list:BlockList = miniblock_list or []
             self.metric = metric
-            # 以下记录与Miniblock有关的信息
+            # 以下为与Miniblock有关的数据
             self.model_hash = model_hash # 用id(model)代替哈希
             self.model = model
-            self.validate_metric = validate_metric
+            # 以下为与Key Block相关数据
+            self.validate_list:dict = validate_list or {}
+            self.ensemble_block_list:BlockList = ensemble_block_list or []
+            self.task_list:list[Task] = task_list or []
+            self.task_queue:list[Task] = task_queue or []
 
         def __deepcopy__(self, memo):
             cls = self.__class__
@@ -71,12 +76,14 @@ class Block(object):
             for k,v in self.__dict__.items():
                 if cls.__name__ != "BlockExtra" or cls.__name__ == "BlockExtra" and \
                     k != "task_list" and k != "miniblock_list" and k != "model" and \
-                    k != "miniblock_hash" and k != "task_queue":
+                    k != "miniblock_hash" and k != "task_queue" and \
+                    k != "validate_list" and k != "ensemble_block_list":
                     # 需要进行深复制的数据
                     setattr(result, k, copy.deepcopy(v, memo))
                 elif (k == "task_list" or k == "miniblock_list" or \
-                     k == "miniblock_hash" or k == "task_queue") and \
-                     cls.__name__ == "BlockExtra":
+                     k == "miniblock_hash" or k == "task_queue" or \
+                     k == "validate_list" or k == "ensemble_block_list") \
+                     and cls.__name__ == "BlockExtra":
                     # 对列表进行浅复制
                     setattr(result, k, copy.copy(v))
                 else: # 对model引用不复制
@@ -90,8 +97,8 @@ class Block(object):
         self.blockhead = blockhead
         self.isAdversaryBlock = isadversary
         self.content = content
-        self.next = []  # 子块列表
-        self.last = None  # 母块
+        self.next:BlockList = []  # 子块列表
+        self.last:Block = None  # 母块
         self.blockextra = blockextra or Block.BlockExtra() # 其他共识协议需要的额外信息
         self.isGenesis = isgenesis
         self.blocksize_byte = blocksize_MB * 1048576
@@ -109,17 +116,23 @@ class Block(object):
         minerid = self.blockhead.miner
         if self.blockextra.blocktype is self.BlockType.MINIBLOCK:
             model_hash = self.blockextra.model_hash
-            preblock_metric = self.blockextra.validate_metric
-            hash_content = [minerid, timestamp, preblock_metric, model_hash, prehash]
-        else: # 完整区块
-            content = self.content
+            hash_content = [minerid, timestamp, model_hash, prehash]
+        elif self.blockextra.blocktype is self.BlockType.BLOCK: # Ensemble Block
             miniblock_hash_list = self.blockextra.miniblock_hash
             task_id = self.blockextra.task_id
             metric = self.blockextra.metric
             hash_content = [minerid, timestamp, task_id, metric]
-            hash_content.append(miniblock_hash_list)
+            hash_content.append(hashG(miniblock_hash_list))
+            hash_content.append(prehash)
+        else: # Key Block
+            content = self.content
+            ensemble_block_hash_list = list(self.blockextra.validate_list.keys())
+            metric_list = list(self.blockextra.validate_list.values())
+            task_id = self.blockextra.task_id
+            metric = self.blockextra.metric
+            hash_content = [minerid, timestamp, task_id, metric]
+            hash_content.append(hashG(ensemble_block_hash_list+metric_list))
             hash_content.append(hashG([prehash, content]))
-
         return hashH(hash_content)  # 计算哈希
 
 
@@ -162,6 +175,7 @@ class Block(object):
                 setattr(result, k, copy.deepcopy(v, memo))
         return result
 
+BlockList = list[Block]
 
 class Chain(object):
 
@@ -177,7 +191,7 @@ class Chain(object):
         # currenthash = hashH([Miner_ID, nonce, hashG([prehash, input])])
         task = global_var.get_global_task()
         blockextra = Block.BlockExtra(None, [task], [task,task])
-        self.head = Block('B0', BlockHead(prehash, None, time, target, nonce, height, Miner_ID),
+        self.head = Block('K0', BlockHead(prehash, None, time, target, nonce, height, Miner_ID),
                           input, False,blockextra, True)
         self.head.blockhead.blockhash = self.head.calculate_blockhash()
         self.head.blockhead.blockheadextra["value"] = 1  # 不加这一条 其他共识无法运行
@@ -295,7 +309,7 @@ class Chain(object):
 
         if not self.head:
             self.head = block
-            # self.lastblock = block # 验证集发布前lastblock不变
+            self.lastblock = block
             print("Add Block {} Successfully.".format(block.name))
             return block
 
@@ -303,7 +317,7 @@ class Chain(object):
             last_Block = self.LastBlock()
             last_Block.next.append(block)
             block.last = last_Block
-            # self.lastblock = block # 验证集发布前lastblock不变
+            self.lastblock = block
             # print("Add Block {} Successfully.".format(block.name))
             return block
 
@@ -470,31 +484,37 @@ class Chain(object):
         blocktmp = self.head
         fork_list = []
         miniblock_name_list = []
+        ensemble_block_name_list = []
         while blocktmp:
             if blocktmp.isGenesis == False:
-                # 建立区块节点
+                # 建立Key Block节点
                 if blocktmp.isAdversaryBlock:
                     dot.node(blocktmp.name, shape='rect', color='red',
                              label=blocktmp.name+':'+str(blocktmp.blockextra.metric))
                 else:
-                    dot.node(blocktmp.name,shape='rect',color='yellow',
+                    dot.node(blocktmp.name,shape='rect',color='orange',
                              label=blocktmp.name+':'+str(blocktmp.blockextra.metric))
-                # 建立Miniblock节点
-                show_validate_metric_flag = False
-                for miniblock in blocktmp.blockextra.miniblock_list:
-                    if miniblock.name not in miniblock_name_list:
-                        dot.node(miniblock.name, shape='rect', color='green')
-                        if show_validate_metric_flag or miniblock.last.isGenesis:
+                # 建立Ensemble Block节点
+                for ensemble_block in blocktmp.blockextra.ensemble_block_list:
+                    if ensemble_block.name not in ensemble_block_name_list:
+                        dot.node(ensemble_block.name, shape='rect', color='yellow',
+                                 label=ensemble_block.name+':'+str(ensemble_block.blockextra.metric))
+                        ensemble_block_name_list.append(ensemble_block.name)
+                        # 建立Ensemble Block与Miniblock的连接（去重）
+                        for miniblock in ensemble_block.blockextra.miniblock_list:
+                            dot.edge(miniblock.name, ensemble_block.name)
+                    # 建立Ensemble Block与Key Block的连接
+                    dot.edge(ensemble_block.name, blocktmp.name)
+                    # 建立Miniblock节点
+                    for miniblock in ensemble_block.blockextra.miniblock_list:
+                        if miniblock.name not in miniblock_name_list:
+                            dot.node(miniblock.name, shape='rect', color='green')
+                            # 建立上一高度Key Block与Miniblock的连接（去重）
                             dot.edge(miniblock.last.name, miniblock.name)
-                        else:
-                            dot.edge(miniblock.last.name, miniblock.name,
-                                     str(miniblock.blockextra.validate_metric))
-                            show_validate_metric_flag = True
-                        miniblock_name_list.append(miniblock.name)
-                    # 建立区块与miniblock的连接
-                    dot.edge(miniblock.name, blocktmp.name)
+                            miniblock_name_list.append(miniblock.name)
+
             else:
-                dot.node('B0',shape='rect',color='black',fontsize='20')
+                dot.node('K0',shape='rect',color='black',fontsize='20')
             list_tmp = copy.copy(blocktmp.next)
             if list_tmp:
                 blocktmp = list_tmp.pop(0)
@@ -508,36 +528,44 @@ class Chain(object):
         dot.render(directory=global_var.get_result_path() / "blockchain_visualization",
                    format='svg', view=global_var.get_show_fig())
     
-    def ShowStructureWithGraphvizWithAllMiniblock(self, complete_miniblock_list):
+    def ShowStructureWithGraphvizWithEverything(self, complete_miniblock_list:BlockList,
+                                                complete_ensemble_block_list:BlockList):
         '''借助Graphviz将区块链可视化'''
         # 采用有向图
         dot = graphviz.Digraph('Blockchain Structure',engine='dot')
         blocktmp = self.head
         fork_list = []
         miniblock_name_list = []
+        ensemble_block_name_list = []
         while blocktmp:
             if blocktmp.isGenesis == False:
-                # 建立区块节点
+                # 建立Key Block节点
                 if blocktmp.isAdversaryBlock:
-                    dot.node(blocktmp.name, shape='rect', color='red')
+                    dot.node(blocktmp.name, shape='rect', color='red',
+                             label=blocktmp.name+':'+str(blocktmp.blockextra.metric))
                 else:
-                    dot.node(blocktmp.name,shape='rect',color='yellow')
-                # 建立Miniblock节点
-                show_validate_metric_flag = False
-                for miniblock in blocktmp.blockextra.miniblock_list:
-                    if miniblock.name not in miniblock_name_list:
-                        dot.node(miniblock.name, shape='rect', color='green')
-                        if show_validate_metric_flag or miniblock.last.isGenesis:
+                    dot.node(blocktmp.name,shape='rect',color='orange',
+                             label=blocktmp.name+':'+str(blocktmp.blockextra.metric))
+                # 建立Ensemble Block节点
+                for ensemble_block in blocktmp.blockextra.ensemble_block_list:
+                    if ensemble_block.name not in ensemble_block_name_list:
+                        dot.node(ensemble_block.name, shape='rect', color='yellow',
+                                 label=ensemble_block.name+':'+str(ensemble_block.blockextra.metric))
+                        ensemble_block_name_list.append(ensemble_block.name)
+                        # 建立Ensemble Block与Miniblock的连接（去重）
+                        for miniblock in ensemble_block.blockextra.miniblock_list:
+                            dot.edge(miniblock.name, ensemble_block.name)
+                    # 建立Ensemble Block与Key Block的连接
+                    dot.edge(ensemble_block.name, blocktmp.name)
+                    # 建立Miniblock节点
+                    for miniblock in ensemble_block.blockextra.miniblock_list:
+                        if miniblock.name not in miniblock_name_list:
+                            dot.node(miniblock.name, shape='rect', color='green')
+                            # 建立上一高度Key Block与Miniblock的连接（去重）
                             dot.edge(miniblock.last.name, miniblock.name)
-                        else:
-                            dot.edge(miniblock.last.name, miniblock.name,
-                                     str(miniblock.blockextra.validate_metric))
-                            show_validate_metric_flag = True
-                        miniblock_name_list.append(miniblock.name)
-                    # 建立区块与miniblock的连接
-                    dot.edge(miniblock.name, blocktmp.name)
+                            miniblock_name_list.append(miniblock.name)
             else:
-                dot.node('B0',shape='rect',color='black',fontsize='20')
+                dot.node('K0',shape='rect',color='black',fontsize='20')
             list_tmp = copy.copy(blocktmp.next)
             if list_tmp:
                 blocktmp = list_tmp.pop(0)
@@ -547,13 +575,19 @@ class Chain(object):
                     blocktmp = fork_list.pop(0)
                 else:
                     blocktmp = None
+        # 查漏补缺
         for miniblock in complete_miniblock_list:
             if miniblock.name not in miniblock_name_list:
                 dot.node(miniblock.name, shape='rect', color='green')
-                dot.edge(miniblock.last.name, miniblock.name,
-                         str(miniblock.blockextra.validate_metric))
+                dot.edge(miniblock.last.name, miniblock.name)
+        for ensemble_block in complete_ensemble_block_list:
+            if ensemble_block.name not in ensemble_block_name_list:
+                dot.node(ensemble_block.name, shape='rect', color='yellow',
+                         label=ensemble_block.name+':'+str(ensemble_block.blockextra.metric))
+                for miniblock in ensemble_block.blockextra.miniblock_list:
+                    dot.edge(miniblock.name, ensemble_block.name)
         # 生成矢量图,展示结果
-        dot.render(filename="blockchain_visualization_with_stale_miniblock",
+        dot.render(filename="blockchain_visualization_with_stale_intermediate_blocks",
                    directory=global_var.get_result_path() / "blockchain_visualization",
                    format='svg', view=global_var.get_show_fig())
     

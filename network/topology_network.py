@@ -60,7 +60,7 @@ class TopologyNetwork(Network):
         NET_RESULT_PATH = global_var.get_net_result_path()
         with open(NET_RESULT_PATH / 'routing_history.json', 'a+',  encoding='utf-8') as f:
             f.write('[')
-            json.dump({"B0": {}}, f, indent=4)
+            json.dump({"K0": {}}, f, indent=4)
             f.write(']')
 
 
@@ -423,7 +423,7 @@ class TopologyNetwork(Network):
                 a = json.load(load_obj)
                 for v_dict in a:
                     for blockname, origin_routing_dict in v_dict.items():
-                        if blockname != 'B0':
+                        if blockname != 'K0':
                             for k, v in origin_routing_dict.items():
                                 if k == 'origin_miner':
                                     origin_miner = v

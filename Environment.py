@@ -10,7 +10,7 @@ from Attack import Attack, Selfmining
 from functions import for_name
 import global_var
 from consensus import Consensus
-from chain import Block, Chain
+from chain import Block, Chain, BlockList
 from miner import Miner
 from task import Task
 from external import V, I ,R , common_prefix, chain_quality, chain_growth, printchain2txt
@@ -42,13 +42,15 @@ class Environment(object):
         # 计划任务的队列schedule（用来发布数据集）
         # 队列中中每一项为一个三元元组(任务执行时间、任务执行函数、任务附加数据)
         self.schedule = []
+        self.schedule_initial_tasks()
         self.global_miniblock_list = [] # 记录所有产生过的miniblock
+        self.global_ensemble_block_list = [] # 记录所有已产生的ensemble block
         self.dataset_publish_history = [] # 记录所有发布过的数据集
         self.winning_block_record = {} # {height : block.name}
         self.test_set_metric = {} # versus block height Key:Height Value:Metric
         self.validation_set_metric = {} # versus block height Key:Height Value:Metric
         # generate miners
-        self.miners = []
+        self.miners:list[Miner] = []
         self.set_q_rand() if q_distr =='rand' else self.set_q_equal()
         self.adversary_mem = []
         self.select_adversary(*adversary_ids)
@@ -70,6 +72,19 @@ class Environment(object):
         self.max_suffix = 10
         self.cp_pdf = np.zeros((1, self.max_suffix)) # 每轮结束时，各个矿工的链与common prefix相差区块个数的分布
 
+    def schedule_initial_tasks(self):
+        '''初始化计划任务队列schedule'''
+        genesis_block = self.global_chain.head
+        dataset_info = (genesis_block.blockhead.blockhash,
+                                id(genesis_block.blockextra.task_queue[0]))
+        test_set_publish_task = (global_var.get_test_set_interval(),
+                                genesis_block,
+                                (Task.DatasetType.TEST_SET,*dataset_info))
+        validation_set_publish_task = (global_var.get_validation_set_interval(),
+                                        genesis_block,
+                                        (Task.DatasetType.VALIDATION_SET,*dataset_info))
+        self.schedule.append(test_set_publish_task)
+        self.schedule.append(validation_set_publish_task)
 
     def select_adversary_random(self):
         '''
@@ -90,7 +105,7 @@ class Environment(object):
             self.adversary_mem.append(self.miners[miner])
             self.miners[miner].set_Adversary(True)
         return self.adversary_mem
-    
+
     def clear_adversary(self):
         '''清空所有对手'''
         for adversary in self.adversary_mem:
@@ -124,7 +139,29 @@ class Environment(object):
                 self.miners.append(Miner(miner_id, q, self.target))
         return q_dist
 
-        
+    def handle_block(self, newblock:Block, miner_id, round):
+        '''处理BackboneProtocol返回的Block对象
+        param:
+            newblock 待处理的Block对象 type:Block
+            miner_id 矿工ID
+            round 当前轮次
+        return:
+            blocktype Block对象类型，如果没有返回有效块则返回
+        '''
+        if newblock is None:
+            return None
+        self.network.access_network(newblock,miner_id,round)
+        if newblock.blockextra.blocktype is newblock.BlockType.KEY_BLOCK: # Key Block要合并到全局链
+            self.global_chain.AddChain(newblock)
+        elif newblock.blockextra.blocktype is newblock.BlockType.MINIBLOCK and \
+            newblock not in self.global_miniblock_list:
+            self.global_miniblock_list.append(newblock)
+        elif newblock.blockextra.blocktype is newblock.BlockType.BLOCK and \
+            newblock not in self.global_ensemble_block_list:
+            self.global_ensemble_block_list.append(newblock)
+
+        return newblock.blockextra.blocktype
+
     #@get_time
     def exec(self, num_rounds):
         '''
@@ -138,7 +175,7 @@ class Environment(object):
         network_idle_counter = 0 # 网络闲置的轮数
         for round in range(1, num_rounds+1):
             inputfromz = round
-            temp_miniblock_list = [] # 临时存放miniblock
+            temp_key_block_list:BlockList = [] # 临时存放当前轮次生成的Key Block
             # A随机选叛变
             # self.network.clear_NetworkTape()
             for attacker in self.adversary_mem:
@@ -152,34 +189,33 @@ class Environment(object):
                     self.miners[i].input_tape.append(("INSERT", inputfromz))
                     # Attack 不提供这个操作
                     # run the bitcoin backbone protocol
-                    newblock = self.miners[i].BackboneProtocol(round)
-                    if newblock is not None:
-                        self.network.access_network(newblock,self.miners[i].Miner_ID,round)
+                    new_block = self.miners[i].BackboneProtocol(round)
+                    if new_block is not None:
                         network_idle_counter = 0
-                        if newblock.blockextra.blocktype is newblock.BlockType.BLOCK: # 完整的区块要合并到全局链
-                            self.global_chain.AddChain(newblock)
-                        elif newblock not in self.global_miniblock_list:
-                            temp_miniblock_list.append(newblock)
-
+                    if self.handle_block(new_block, self.miners[i].Miner_ID, round) \
+                        is Block.BlockType.KEY_BLOCK:
+                        temp_key_block_list.append(new_block)
                     self.miners[i].input_tape = []  # clear the input tape
                     self.miners[i].receive_tape = []  # clear the communication tape
             last_winningblock = None
-            self.global_miniblock_list.extend(temp_miniblock_list)
-            for miniblock in temp_miniblock_list:
-                preblock_height = miniblock.last.blockhead.height # 前一区块的高度
+
+            for key_block in temp_key_block_list:
+                preblock_height = key_block.blockhead.height # 获胜Key Block所在的高度
                 self.validation_set_metric.setdefault(preblock_height, 0)
-                self.winning_block_record.setdefault(preblock_height, miniblock.last.name)
-                if self.validation_set_metric[preblock_height] < miniblock.blockextra.validate_metric or \
-                   self.validation_set_metric[preblock_height] == miniblock.blockextra.validate_metric and \
-                   global_var.get_miniblock_num(self.winning_block_record[preblock_height]) < \
-                   global_var.get_miniblock_num(miniblock.last.name) or miniblock.last.isGenesis:
-                    # 前一区块验证集性能更好
-                    # 或者验证集性能相同但是miniblock更多,应该成为获胜区块
-                    self.validation_set_metric[preblock_height] = miniblock.blockextra.validate_metric
-                    # 确定上一高度的获胜区块
-                    last_winningblock = miniblock.last
+                self.winning_block_record.setdefault(preblock_height, key_block.name)
+                if self.validation_set_metric[preblock_height] < key_block.blockextra.metric:
+                    # 该Key Block验证集性能更好
+                    last_winningblock = key_block
+                    self.validation_set_metric[preblock_height] = last_winningblock.blockextra.metric
                     self.winning_block_record[preblock_height] = last_winningblock.name
-                    self.test_set_metric[preblock_height] = last_winningblock.blockextra.metric
+                    winning_ensemble_block_hashs = [k for k,v in last_winningblock.blockextra.validate_list.items() \
+                             if v == last_winningblock.blockextra.metric]
+                    winning_ensemble_block = None
+                    for ensemble_block in last_winningblock.blockextra.ensemble_block_list:
+                        if ensemble_block.blockhead.blockhash in winning_ensemble_block_hashs:
+                            winning_ensemble_block = ensemble_block
+                            break # 匹配到就直接退出循环（不全部匹配）
+                    self.test_set_metric[preblock_height] = winning_ensemble_block.blockextra.metric
 
             if last_winningblock:
                 for task in self.schedule:
@@ -217,7 +253,7 @@ class Environment(object):
             self.network.diffuse(round) 
             self.assess_common_prefix()
             self.process_bar(round, num_rounds, t_0) # 显示进度条
-        
+
         # self.clear_adversary()
         self.total_round = self.total_round + num_rounds
 
@@ -287,7 +323,8 @@ class Environment(object):
 
         print('Visualizing Blockchain...')
         self.global_chain.ShowStructureWithGraphviz()
-        self.global_chain.ShowStructureWithGraphvizWithAllMiniblock(self.global_miniblock_list)
+        self.global_chain.ShowStructureWithGraphvizWithEverything(self.global_miniblock_list,
+                                                                  self.global_ensemble_block_list)
 
         network_stats = self.network.calculate_stats()
         print('Average network delay:',network_stats["average_network_delay"],'rounds')
@@ -296,9 +333,9 @@ class Environment(object):
         if self.network.__class__.__name__=='TopologyNetwork':
             pass # self.network.gen_routing_gragh_from_json() 由于生成路由图表占用大量时间空间，禁用
         # print_chain_property2txt(self.miners[9].Blockchain)
-        test_set_metric_list = list(self.test_set_metric.values())[1:] # 排除创世区块
+        test_set_metric_list = list(self.test_set_metric.values())
         average_test_set_metric = sum(test_set_metric_list)/len(test_set_metric_list)
-        validation_set_metric_list = list(self.validation_set_metric.values())[1:] # 排除创世区块
+        validation_set_metric_list = list(self.validation_set_metric.values())
         average_validation_set_metric_list = \
             sum(validation_set_metric_list)/len(validation_set_metric_list)
         print("Averaged metric:")
@@ -313,11 +350,11 @@ class Environment(object):
     def plot_metric_against_height(self):
         '''绘制性能指标随高度的变化曲线'''
         fig, ax = plt.subplots()
-        height_test = list(self.test_set_metric.keys())[1:]
-        metric_test = list(self.test_set_metric.values())[1:]
+        height_test = list(self.test_set_metric.keys())
+        metric_test = list(self.test_set_metric.values())
         ax.plot(height_test,metric_test,'b^-',label="test set metric")
-        height_validate = list(self.validation_set_metric.keys())[1:]
-        metric_validate = list(self.validation_set_metric.values())[1:]
+        height_validate = list(self.validation_set_metric.keys())
+        metric_validate = list(self.validation_set_metric.values())
         ax.plot(height_validate,metric_validate,'r+-',label="validation set metric")
         ax.set_xlabel("height")
         ax.set_ylabel("metric")

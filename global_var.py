@@ -25,7 +25,6 @@ def __init__(result_path = None):
     _var_dict['AVE_Q']=0
     _var_dict['CONSENSUS_TYPE']='consensus.PoW'
     _var_dict['NETWORK_TYPE']='network.FullConnectedNetwork'
-    _var_dict['BLOCK_NUMBER'] = 0
     _var_dict['RESULT_PATH'] = RESULT_PATH
     _var_dict['NET_RESULT_PATH'] = NET_RESULT_PATH
     _var_dict['Attack'] = False
@@ -40,11 +39,15 @@ def __init__(result_path = None):
     _var_dict['TEST_SET_INTERVAL'] = 90
     _var_dict['VALIDATION_SET_INTERVAL'] = 180
     _var_dict['TASK_QUEUE_LENGTH'] = 2
+    _var_dict['ENSEMBLE_BLOCK_NUM'] = 100
     _var_dict['BAG_SCALE'] = 0.5
     _var_dict['global_task'] = None # 需要在主程序中生成一个全局任务
     _var_dict['LOG_LEVEL'] = logging.INFO
     _var_dict['Show_Fig'] = False
-    _var_dict['MINIBLOCK_COUNTER'] = {'B0':-1} # 迷你块计数器，以字典形式为每个块之后的miniblock计数
+
+    _var_dict['BLOCK_NUMBER'] = 0
+    _var_dict['KEY_BLOCK_NUM'] = 0
+    _var_dict['MINIBLOCK_COUNTER'] = {'K0':-1} # 迷你块计数器，以字典形式为每个块之后的miniblock计数
     
 
 def set_dataset_path(dataset_path):
@@ -102,6 +105,14 @@ def get_task_queue_length():
     '''获得任务队列长度'''
     return _var_dict['TASK_QUEUE_LENGTH']
 
+def set_ensemble_block_num(ensemble_block_num):
+    '''设置Key Block中引用Ensemble Block的最大数量 type:int'''
+    _var_dict['ENSEMBLE_BLOCK_NUM'] = ensemble_block_num
+
+def get_ensemble_block_num():
+    '''获得任务队列长度'''
+    return _var_dict['ENSEMBLE_BLOCK_NUM']
+
 def set_bag_scale(bag_scale):
     '''设置有放回抽样集大小 type:float'''
     _var_dict['BAG_SCALE'] = bag_scale
@@ -158,9 +169,14 @@ def get_ave_q():
     return _var_dict['AVE_Q']
 
 def get_block_number():
-    '''获得产生区块的独立编号'''
+    '''获得新Ensemble Block的独立编号'''
     _var_dict['BLOCK_NUMBER'] = _var_dict['BLOCK_NUMBER'] + 1
     return _var_dict['BLOCK_NUMBER']
+
+def get_key_block_number():
+    '''获得新Key Block的独立编号'''
+    _var_dict['KEY_BLOCK_NUM'] = _var_dict['KEY_BLOCK_NUM'] + 1
+    return _var_dict['KEY_BLOCK_NUM']
 
 def get_miniblock_num(pre_block_name:str):
     '''获得某一block之后的miniblock数量'''
@@ -169,8 +185,8 @@ def get_miniblock_num(pre_block_name:str):
 def get_miniblock_name(pre_block_name:str) -> str:
     '''产生miniblock的名称'''
     # 检查pre_block_name的有效性
-    pre_block_num = int(pre_block_name.split('B')[1])
-    if pre_block_num > _var_dict['BLOCK_NUMBER']:
+    pre_block_num = int(pre_block_name.split('K')[1])
+    if pre_block_num > _var_dict['KEY_BLOCK_NUM']:
         raise Warning(f"Invalid block name:{pre_block_name}")
     _var_dict['MINIBLOCK_COUNTER'].setdefault(pre_block_name,-1)
     _var_dict['MINIBLOCK_COUNTER'][pre_block_name] += 1

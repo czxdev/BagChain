@@ -3,7 +3,7 @@ import logging
 from enum import Enum
 
 import global_var
-from chain import Block, Chain, BlockHead
+from chain import Block, Chain, BlockList
 from functions import for_name
 from external import I
 from task import Task
@@ -21,7 +21,7 @@ class Miner(object):
         '''描述矿工状态的类'''
         MINING_MINIBLOCK = 1 # 收到区块开始尝试产生miniblock
         WAITING_MINIBLOCK = 2 # 等待来自其他矿工的miniblock
-        PENDING_FOR_VALIDATION = 3 # 区块已经产生，等待验证当前高度区块
+        WAITING_ENSEMBLE_BLOCK = 3 # 等待验证集发布接收来自其他矿工的Ensemble Block
    
     def __init__(self, Miner_ID, q, target):
         '''初始化'''
@@ -36,7 +36,7 @@ class Miner(object):
         self.input = 0          # 要写入新区块的值
         self.input_tape = []
         #接收链相关
-        self.receive_tape = []
+        self.receive_tape:BlockList = []
         self.receive_history= [] #保留最近接收到的3个块
         self.buffer_size = 3
         #网络相关
@@ -46,8 +46,11 @@ class Miner(object):
         #共识协议相关
         self.state = self.MinerState.MINING_MINIBLOCK
         self.dataset_publication_channel = [] # 数据集发布通道
-        self.miniblock_storage = [] # miniblock暂存区
-        self.miniblock_pending_list = [] # 存储接收到的miniblock（无论是否是获胜区块）
+        self.miniblock_storage:BlockList = [] # miniblock暂存区
+        self.miniblock_pending_list:BlockList = [] # 存储接收到的miniblock（非获胜Key Block）
+        self.ensemble_block_storage:BlockList = [] # Ensemble Block暂存区
+        self.ensemble_block_pending_list:BlockList = [] # 存储接收到的Ensemble Blokc（非获胜Key Block）
+
 
     def dataset_published(self, prehash:str, task_id, dataset_type:Task.DatasetType):
         '''检查测试集是否已经发布，如果已经发布则返回对应的发布消息
@@ -59,7 +62,7 @@ class Miner(object):
         '''
         for message in self.dataset_publication_channel:
             if message[0] is dataset_type and message[1] == prehash \
-                and message[2] == task_id:
+                and message[2] == task_id:                
                 return message
         return None
 
@@ -95,8 +98,13 @@ class Miner(object):
                 rcvblock not in self.miniblock_pending_list:
                 self.receive_tape.append(rcvblock)
                 return True
-        else:
+        elif rcvblock.blockextra.blocktype is rcvblock.BlockType.KEY_BLOCK:
             if rcvblock not in self.Blockchain:
+                self.receive_tape.append(rcvblock)
+                return True
+        elif rcvblock.blockextra.blocktype is rcvblock.BlockType.BLOCK:
+            if rcvblock not in self.ensemble_block_storage and \
+                rcvblock not in self.ensemble_block_pending_list:
                 self.receive_tape.append(rcvblock)
                 return True
 
@@ -120,37 +128,44 @@ class Miner(object):
         if self.state is self.MinerState.MINING_MINIBLOCK:
             if self.dataset_published(prehash, taskid,
                                       Task.DatasetType.VALIDATION_SET):
-                self.state = self.MinerState.PENDING_FOR_VALIDATION
+                self.state = self.MinerState.WAITING_ENSEMBLE_BLOCK
             elif self.dataset_published(prehash, taskid,
                                         Task.DatasetType.TEST_SET):
                 self.state = self.MinerState.WAITING_MINIBLOCK
             else: # 还没有发布测试集
-                if validate_metric := self.Blockchain.lastblock.blockextra.validate_metric \
-                    or self.Blockchain.lastblock.isGenesis:
-                    outcome, mine_success = self.consensus.train(
-                        self.Blockchain.lastblock, self.Miner_ID, 
-                        validate_metric, self.isAdversary)
-                elif not self.Blockchain.lastblock.isGenesis:
-                    raise Warning("Enter MINING_MINIBLOCK mode before validate lastblock")
+                outcome, mine_success = self.consensus.train(
+                    self.Blockchain.lastblock, self.Miner_ID, self.isAdversary)
                 if mine_success:
                     self.miniblock_storage.append(outcome)
                     self.state = self.MinerState.WAITING_MINIBLOCK
         elif self.state is self.MinerState.WAITING_MINIBLOCK:
             if self.dataset_published(prehash, taskid,
                                       Task.DatasetType.VALIDATION_SET):
-                self.state = self.MinerState.PENDING_FOR_VALIDATION
+                self.state = self.MinerState.WAITING_ENSEMBLE_BLOCK
             elif self.dataset_published(prehash, taskid,
                                       Task.DatasetType.TEST_SET):
-                outcome, mine_success = self.consensus.mining_consensus(
-                    self.miniblock_storage, self.Miner_ID, self.input, self.isAdversary)
+                if len(self.miniblock_storage) > 0:
+                    outcome, mine_success = self.consensus.ensemble(
+                        self.miniblock_storage, self.Miner_ID, self.isAdversary)
                 if mine_success:
-                    self.Blockchain.AddBlock(outcome)
-                    self.state = self.MinerState.PENDING_FOR_VALIDATION
-        elif self.state is self.MinerState.PENDING_FOR_VALIDATION:
+                    self.ensemble_block_storage.append(outcome)
+                    self.state = self.MinerState.WAITING_ENSEMBLE_BLOCK
+        elif self.state is self.MinerState.WAITING_ENSEMBLE_BLOCK:
             if not self.dataset_published(prehash, taskid,
                                       Task.DatasetType.TEST_SET):
-                raise Warning("Enter PENDING_FOR_VALIDATION before any test set published")
-        
+                raise Warning("Enter WAITING_ENSEMBLE_BLOCK before any test set published")
+            if self.dataset_published(prehash, taskid,
+                                      Task.DatasetType.VALIDATION_SET):
+                if len(self.ensemble_block_storage) > 0:
+                    outcome, mine_success = self.consensus.mining_consensus(
+                        self.ensemble_block_storage, self.Miner_ID, self.input, self.isAdversary)
+                if mine_success:
+                    self.Blockchain.AddBlock(outcome)
+                    self.miniblock_pending_list.extend(self.miniblock_storage)
+                    self.miniblock_storage = []
+                    self.ensemble_block_pending_list.extend(self.ensemble_block_storage)
+                    self.ensemble_block_storage = []
+                    self.state = self.MinerState.MINING_MINIBLOCK
         return (outcome, mine_success)
     
     def ValiChain(self, blockchain: Chain = None):
@@ -174,36 +189,6 @@ class Miner(object):
             if not IsValid:
                 print('blockchain wrong\n')
         return IsValid
-
-    def validate_chain_metric(self, block:Block):
-        '''
-        评估链上validate_metric为None的区块
-        判断测试集是否发布并评估、记录验证集性能validate_metric
-        param:
-            block: 待检验链的尾部 Type: Block
-        '''
-        if block.blockextra.blocktype is Block.BlockType.MINIBLOCK:
-            raise Warning("Expect a Block")
-        blocktmp = block
-        block_with_no_validation_set = 0
-        while blocktmp and not blocktmp.isGenesis and \
-            blocktmp.blockextra.validate_metric is None:
-            # 从后向前遍历所有validate_metric为None的区块
-            if self.dataset_published(blocktmp.blockhead.prehash,
-                                      blocktmp.blockextra.task_id,
-                                      Task.DatasetType.VALIDATION_SET):
-                # 验证集已经发布
-                task_blocktmp = blocktmp.last.blockextra.task_queue[0]
-                blocktmp.blockextra.validate_metric = \
-                        self.consensus.validate_evaluate_miniblock(
-                        blocktmp.blockextra.miniblock_list, task_blocktmp,
-                        Task.DatasetType.VALIDATION_SET)
-            else:
-                block_with_no_validation_set += 1
-            blocktmp = blocktmp.last
-        if block_with_no_validation_set > 1:
-            raise Warning("Only the tail of a chain may exist without any\
-                          validation set published")
         
     def maxvalid(self):
         # 处理receive_tape中的每一项
@@ -229,90 +214,45 @@ class Miner(object):
                     logger.info("%s enter pending list in Miner %d",
                                     incoming_data.name, self.Miner_ID)
             elif incoming_data.blockextra.blocktype is incoming_data.BlockType.BLOCK:
+                if not self.consensus.validblock(incoming_data):
+                    continue # 无效Ensenble Block
+                if incoming_data.last in self.Blockchain:
+                    if incoming_data.last.blockhead.blockhash == \
+                    self.Blockchain.lastblock.blockhead.blockhash:
+                        self.ensemble_block_storage.append(incoming_data) 
+                        continue
+                # 缓存Ensemble Block
+                if incoming_data.blockhead.height > \
+                    self.Blockchain.lastblock.blockhead.height:
+                    # 利用块头中的高度信息，保留比本地区块链更高的Ensemble Block
+                    self.ensemble_block_pending_list.append(incoming_data)
+                    logger.info("%s enter pending list in Miner %d",
+                                    incoming_data.name, self.Miner_ID)
+            elif incoming_data.blockextra.blocktype is incoming_data.BlockType.KEY_BLOCK:
                 if self.consensus.validate(incoming_data):
                     # 把合法链的公共部分加入到本地区块链中
                     blocktmp = self.Blockchain.AddChain(incoming_data)
-                    # 若验证集已经发布先评估指标，记录在validate_metric中
-                    self.validate_chain_metric(blocktmp)
                     # 找到最长链，判断最长链的末端验证集是否已经发布
-                    # 由于lastblock的验证集不一定已经发布，需要将当前块的高度+1
-                    # depthself = self.Blockchain.lastblock.BlockHeight() + 1
+                    # 或者找到区块高度相同但是性能更好的链，但需要保证任务相同才能比较性能指标
                     depthself = self.Blockchain.lastblock.BlockHeight()
                     depthOtherblock = incoming_data.BlockHeight()
-                    if depthself < depthOtherblock:
-                        if blocktmp.blockextra.validate_metric is not None:
-                            # 有高度更高的链，并且验证集已经发布
-                            self.Blockchain.lastblock = blocktmp
-                        elif depthself+1 < depthOtherblock:
-                            # 高度+2的任务还没有发布验证集，lastblock为下一高度的获胜块
-                            # 由于validate_chain_metric进行了检查，blocktmp.last一定已经经过验证
-                            self.Blockchain.lastblock = blocktmp.last
-                        else: # 下一高度的块，验证集还没有发布，没有办法评估验证集性能
-                            continue
-                        new_update = True
-                        # 将当前miniblock_storage的内容放入pending list留存一个区块高度
-                        self.miniblock_pending_list.extend(self.miniblock_storage)
-                        self.miniblock_storage = []
-                        self.state = self.MinerState.MINING_MINIBLOCK
-                    
-                    # 或者找到区块高度相同但是性能更好的链，但需要保证任务相同才能比较性能指标
-                    if  depthself == depthOtherblock \
+                    if depthself < depthOtherblock or depthself == depthOtherblock \
                         and incoming_data.blockextra.task_id == \
                             self.Blockchain.lastblock.blockextra.task_id \
-                        and incoming_data.blockextra.validate_metric is not None \
-                        and incoming_data.blockextra.validate_metric > \
-                            self.Blockchain.lastblock.blockextra.validate_metric:
-                        
+                        and incoming_data.blockextra.metric > \
+                            self.Blockchain.lastblock.blockextra.metric:
                         self.Blockchain.lastblock = blocktmp
                         new_update = True
-                        # 将当前miniblock_storage的内容放入pending list留存一个区块高度
+                        # 将当前存储的miniblock/ensemble block放入pending list留存一个区块高度
                         self.miniblock_pending_list.extend(self.miniblock_storage)
+                        self.ensemble_block_pending_list.extend(self.ensemble_block_storage)
                         self.miniblock_storage = []
+                        self.ensemble_block_storage = []
                         self.state = self.MinerState.MINING_MINIBLOCK
                 else:
                     logger.error("validation of block %s failure", 
                                 incoming_data.name)  # 验证失败
                     continue
-        
-        # 查找当前高度上是否有区块的验证集已经发布
-        # 正常情况下一个高度上客户仅为一个任务发布数据集
-        # 当前高度上区块列表
-        blocks_current_height = self.Blockchain.lastblock.last.next \
-                                if not self.Blockchain.lastblock.isGenesis \
-                                else [self.Blockchain.lastblock]
-        for block in blocks_current_height:
-            prehash = block.blockhead.blockhash
-            current_task = block.blockextra.task_queue[0]
-            if self.dataset_published(prehash, id(current_task),
-                                      Task.DatasetType.VALIDATION_SET):
-                # 验证集发布后开始判断获胜区块
-                # 寻找当前高度上next中区块最多的块
-                fork_list = block.next
-                if len(fork_list) == 0:
-                    logger.warning("validation set published before any valid block received")
-                    break
-                best_block = fork_list[0]
-                best_block.blockextra.validate_metric = self.consensus.validate_evaluate_miniblock(
-                                best_block.blockextra.miniblock_list, current_task,
-                                Task.DatasetType.VALIDATION_SET)
-                optimal_metric = best_block.blockextra.validate_metric
-                # 找到验证集性能最好的块
-                for block in fork_list[1:]:
-                    metric_temp = self.consensus.validate_evaluate_miniblock(
-                        block.blockextra.miniblock_list, current_task,
-                        Task.DatasetType.VALIDATION_SET)
-                    block.blockextra.validate_metric = metric_temp
-                    if  metric_temp > optimal_metric:
-                        best_block = block
-                        optimal_metric = metric_temp
-                self.Blockchain.lastblock = best_block
-                new_update = True
-                # 将当前miniblock_storage的内容放入pending list留存一个区块高度
-                self.miniblock_pending_list.extend(self.miniblock_storage)
-                self.miniblock_storage = []
-                self.state = self.MinerState.MINING_MINIBLOCK
-                break # 一个高度上客户仅为一个任务发布数据集
-                      # 且任务队列已经保证当前高度上任务已经在若干个高度前确定
 
         new_list = []
         for miniblock in self.miniblock_pending_list:
@@ -320,8 +260,8 @@ class Miner(object):
                 if miniblock.last.blockhead.blockhash == \
                 self.Blockchain.lastblock.blockhead.blockhash and \
                     miniblock not in self.miniblock_storage:
-                    # 只有获胜区块后续的miniblock可以放入miniblock_storage
-                    # 这些区块不会留在pending list
+                    # 只有获胜Key Block后续的miniblock可以放入miniblock_storage
+                    # 这些miniblock不会留在pending list
                     self.miniblock_storage.append(miniblock)
                     logger.info("%s moved from pending list to storage in Miner %d",
                                  miniblock.name, self.Miner_ID)
@@ -335,6 +275,28 @@ class Miner(object):
             logger.info("%d miniblock(s) dropped from pending list of Miner %d",
                         dropped_miniblock_num, self.Miner_ID)
         self.miniblock_pending_list = new_list
+
+        new_list = []
+        for ensemble_block in self.ensemble_block_pending_list:
+            if ensemble_block.last in self.Blockchain:
+                if ensemble_block.last.blockhead.blockhash == \
+                self.Blockchain.lastblock.blockhead.blockhash and \
+                    ensemble_block not in self.ensemble_block_storage:
+                    # 只有获胜Key Block后续的Ensemble Block可以放入ensemble_block_storage
+                    # 这些ensemble_block不会留在pending list
+                    self.ensemble_block_storage.append(ensemble_block)
+                    logger.info("%s moved from pending list to storage in Miner %d",
+                                 ensemble_block.name, self.Miner_ID)
+                    continue
+            if ensemble_block.blockhead.height >= self.Blockchain.lastblock.blockhead.height:
+                # 丢弃低于本地链高度的Ensemble Block
+                # 保留Ensemble Block接收记录，避免receiveBlock重复接收同一Ensemble Block
+                new_list.append(ensemble_block)
+        dropped_ensemble_block_num = len(self.ensemble_block_pending_list)-len(new_list)
+        if dropped_ensemble_block_num > 0:
+            logger.info("%d ensemble block(s) dropped from pending list of Miner %d",
+                        dropped_ensemble_block_num, self.Miner_ID)
+        self.ensemble_block_pending_list = new_list
 
         return self.Blockchain, new_update
     
@@ -364,4 +326,3 @@ if __name__ =='__main__':
     miner1.receiveBlock(Block())
     print(miner1.receive_buffer)
     print(miner1.receive_tape)
-
