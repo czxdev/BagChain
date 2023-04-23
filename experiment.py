@@ -18,7 +18,8 @@ if __name__ == "__main__":
         # single_process(miner_num)
     pool_size = 4 # CPU Core Number
     with Pool(pool_size) as p:
+        res = []
         for miner_num in miner_num_experiment_list:
-            p.apply_async(single_process,args=(result_path,miner_num))
-        p.close()
-        p.join()
+            res.append(p.apply_async(single_process,args=(result_path,miner_num)))
+        for r in res:
+            r.wait()

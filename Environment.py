@@ -76,7 +76,8 @@ class Environment(object):
         '''初始化计划任务队列schedule'''
         genesis_block = self.global_chain.head
         dataset_info = (genesis_block.blockhead.blockhash,
-                                id(genesis_block.blockextra.task_queue[0]))
+                        id(genesis_block.blockextra.task_queue[0]),
+                        genesis_block.blockhead.height)
         test_set_publish_task = (global_var.get_test_set_interval(),
                                 genesis_block,
                                 (Task.DatasetType.TEST_SET,*dataset_info))
@@ -218,15 +219,14 @@ class Environment(object):
                     self.test_set_metric[preblock_height] = winning_ensemble_block.blockextra.metric
 
             if last_winningblock:
-                for task in self.schedule:
-                # 从schedule中删除同一高度、同一prehash的数据集发布任务
-                    if task[1].blockhead.height == last_winningblock.blockhead.height and \
-                       task[1].blockhead.prehash == last_winningblock.blockhead.prehash:
-                        self.schedule.remove(task)
+                # 从schedule中删除同一高度的数据集发布任务
+                self.schedule = [task for task in self.schedule if \
+                                 task[1].blockhead.height != last_winningblock.blockhead.height]
 
                 # schedule dataset publication
                 dataset_info = (last_winningblock.blockhead.blockhash,
-                                id(last_winningblock.blockextra.task_queue[0]))
+                                id(last_winningblock.blockextra.task_queue[0]),
+                                last_winningblock.blockhead.height)
                 test_set_publish_task = (round + global_var.get_test_set_interval(),
                                         last_winningblock,
                                         (Task.DatasetType.TEST_SET,*dataset_info))
@@ -236,14 +236,18 @@ class Environment(object):
                                               (Task.DatasetType.VALIDATION_SET,*dataset_info))
                 self.schedule.append(test_set_publish_task)
                 self.schedule.append(validation_set_publish_task)
-                
-            for index, task in enumerate(self.schedule):
-                if task[0] == round:
-                    dataset_info = self.schedule.pop(index)[2]
+
+            new_schedule = []
+            for task in self.schedule:
+                if task[0] != round:
+                    new_schedule.append(task)
+                else:
+                    dataset_info = task[2]
                     for miner in self.miners:
                         miner.dataset_publication_channel.append((*dataset_info, time.time_ns()))
-                    logger.info("%s published prehash:%s taskid:%d at round %d",
-                    dataset_info[0].name, *dataset_info[1:], round)
+                    logger.info("%s published prehash:%s taskid:%d height:%d at round %d",
+                    dataset_info[0].name, *dataset_info[1:4], round)
+            self.schedule = new_schedule
 
             # 错误检查，如果超过一定轮数没有新区块或miniblock，可能是系统出现未知错误
             network_idle_counter += 1 # 没有新的区块或miniblock，闲置轮数+1
@@ -295,6 +299,8 @@ class Environment(object):
         print("Number of Forks:", stats["num_of_forks"])
         print("Fork rate:", round(stats["fork_rate"], 3))
         print("Stale rate:", round(stats["stale_rate"], 3))
+        logger.info("Average Local Blockchain Height in honest miners:%d", growth)
+        logger.info("Fork rate:%f ,Slate rate:%f", round(stats["fork_rate"],3), round(stats["stale_rate"],3))
         print("Average block time (main chain):", round(stats["average_block_time_main"]), "rounds/block")
         print("Block throughput (main chain):", round(stats["block_throughput_main"],3), "blocks/round")
         print("Throughput in MB (main chain):", round(stats["throughput_main_MB"], 3), "blocks/round")
@@ -346,6 +352,8 @@ class Environment(object):
                     average_validation_set_metric_list)
         self.plot_metric_against_height()
         print("End")
+        result_collection = {}
+        return result_collection
 
     def plot_metric_against_height(self):
         '''绘制性能指标随高度的变化曲线'''

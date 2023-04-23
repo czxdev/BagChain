@@ -31,7 +31,7 @@ class Miner(object):
         self.Blockchain = Chain()   # 维护的区块链
         #共识相关
         self.consensus = for_name(global_var.get_consensus_type())()    # 共识
-        self.consensus.setparam()                                 # 设置共识参数
+        self.consensus.setparam(target)                                 # 设置共识参数
         #输入内容相关
         self.input = 0          # 要写入新区块的值
         self.input_tape = []
@@ -52,17 +52,19 @@ class Miner(object):
         self.ensemble_block_pending_list:BlockList = [] # 存储接收到的Ensemble Blokc（非获胜Key Block）
 
 
-    def dataset_published(self, prehash:str, task_id, dataset_type:Task.DatasetType):
+    def dataset_published(self, prehash:str, task_id, dataset_type:Task.DatasetType, height):
         '''检查测试集是否已经发布，如果已经发布则返回对应的发布消息
         param:
-            prehash miniblock的prehash
-            task_id miniblock的task_id
+            prehash 上一高度获胜区块的哈希
+            task_id 当前高度执行的任务
+            height 上一获胜区块所在区块高度
         return:
             message 测试集发布消息，如果没有则返回None
         '''
         for message in self.dataset_publication_channel:
-            if message[0] is dataset_type and message[1] == prehash \
-                and message[2] == task_id:                
+            # if message[0] is dataset_type \
+            if message[0] is dataset_type and message[3] == height \
+                            and message[2] == task_id:
                 return message
         return None
 
@@ -124,13 +126,16 @@ class Miner(object):
         mine_success = False
         prehash = self.Blockchain.lastblock.blockhead.blockhash
         taskid = id(self.Blockchain.lastblock.blockextra.task_queue[0])
+        height = self.Blockchain.lastblock.blockhead.height
         
         if self.state is self.MinerState.MINING_MINIBLOCK:
             if self.dataset_published(prehash, taskid,
-                                      Task.DatasetType.VALIDATION_SET):
+                                      Task.DatasetType.VALIDATION_SET,
+                                      height):
                 self.state = self.MinerState.WAITING_ENSEMBLE_BLOCK
             elif self.dataset_published(prehash, taskid,
-                                        Task.DatasetType.TEST_SET):
+                                        Task.DatasetType.TEST_SET,
+                                        height):
                 self.state = self.MinerState.WAITING_MINIBLOCK
             else: # 还没有发布测试集
                 outcome, mine_success = self.consensus.train(
@@ -140,10 +145,12 @@ class Miner(object):
                     self.state = self.MinerState.WAITING_MINIBLOCK
         elif self.state is self.MinerState.WAITING_MINIBLOCK:
             if self.dataset_published(prehash, taskid,
-                                      Task.DatasetType.VALIDATION_SET):
+                                      Task.DatasetType.VALIDATION_SET,
+                                      height):
                 self.state = self.MinerState.WAITING_ENSEMBLE_BLOCK
             elif self.dataset_published(prehash, taskid,
-                                      Task.DatasetType.TEST_SET):
+                                      Task.DatasetType.TEST_SET,
+                                      height):
                 if len(self.miniblock_storage) > 0:
                     outcome, mine_success = self.consensus.ensemble(
                         self.miniblock_storage, self.Miner_ID, self.isAdversary)
@@ -152,13 +159,16 @@ class Miner(object):
                     self.state = self.MinerState.WAITING_ENSEMBLE_BLOCK
         elif self.state is self.MinerState.WAITING_ENSEMBLE_BLOCK:
             if not self.dataset_published(prehash, taskid,
-                                      Task.DatasetType.TEST_SET):
+                                      Task.DatasetType.TEST_SET,
+                                      height):
                 raise Warning("Enter WAITING_ENSEMBLE_BLOCK before any test set published")
             if self.dataset_published(prehash, taskid,
-                                      Task.DatasetType.VALIDATION_SET):
+                                      Task.DatasetType.VALIDATION_SET,
+                                      height):
                 if len(self.ensemble_block_storage) > 0:
                     outcome, mine_success = self.consensus.mining_consensus(
-                        self.ensemble_block_storage, self.Miner_ID, self.input, self.isAdversary)
+                        self.ensemble_block_storage, self.Miner_ID, self.input,
+                        self.isAdversary, self.q)
                 if mine_success:
                     self.Blockchain.AddBlock(outcome)
                     self.miniblock_pending_list.extend(self.miniblock_storage)

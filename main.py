@@ -70,22 +70,22 @@ def global_task_init():
 
 
 @get_time
-def run(Z, total_round):
+def run(Z, total_round) -> dict:
     Z.exec(total_round)
-    Z.view()
+    return Z.view()
 
 def main(
     total_round = 100,
     n = 10,  # number of miners
     t = 0,   # maximum number of adversary
     q = 5,
-    target = '000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF',
+    target = '07FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF',
     blocksize = 16,
     miniblock_size = 2,
     result_path = None):
 
     global_var_init(n, q, blocksize, miniblock_size, result_path)
-    global_var.set_block_metric_requirement(0.8)
+    global_var.set_block_metric_requirement(0.85)
     # 根据区块与miniblock大小确定测试/验证集发布间隔
     global_var.set_test_set_interval(5*miniblock_size)
     global_var.set_validation_set_interval(5*(miniblock_size + blocksize))
@@ -103,7 +103,7 @@ def main(
 #                                                 # =>readtype: 读取csv文件类型, 'adj'为邻接矩阵, 'coo'为coo格式的稀疏矩阵
 #                                                 # =>TTL: 区块的最大生存周期   
     adversary_ids = ()     # no attacks
-    run(Environment(t, q, 'equal', target, network_param, *adversary_ids), total_round)
+    return run(Environment(t, q, 'equal', target, network_param, *adversary_ids), total_round)
 
 if __name__ == "__main__":
     main(200, 5, blocksize=2)

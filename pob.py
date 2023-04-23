@@ -27,10 +27,12 @@ class PoB(Consensus):
     '''继承Consensus类，实现共识算法'''
     def __init__(self):
         '''初始化，目前PoB没有需要初始化的成员变量'''
-        pass
+        self.target = '0'
+        self.ctr=0 #计数器
 
-    def setparam(self):
-        '''没有需要设置的参数'''
+    def setparam(self, target):
+        '''设置Key Block生成的难度值'''
+        self.target = target
         return super().setparam()
 
     def validate_evaluate_miniblock(self, miniblock_list, current_task:Task,
@@ -104,17 +106,21 @@ class PoB(Consensus):
         '''
         if block.isGenesis: # 创世区块不需要验证
             return True
-
         if block.last is None:
             raise ValueError(
                 'Blocks other than genesis block should have a valid lastblock')
-
         if not block or block.blockextra.blocktype is not block.BlockType.KEY_BLOCK:
             raise TypeError('expect key block')
+        
+        # PoW验证
+        target = block.blockhead.target
+        blockhash = block.calculate_blockhash()
+        if int(blockhash, 16) >= int(target, 16):
+            return False
+
         current_task = find_task_by_id(block, block.blockextra.task_id)
         if current_task is None:
             return False
-
         # 任务队列检查
         if len(block.blockextra.task_queue) > global_var.get_task_queue_length():
             raise Warning('Task queue in some block too long')
@@ -270,18 +276,19 @@ class PoB(Consensus):
                                       metric, Block.BlockType.BLOCK)
         new_block = Block(''.join(['B',str(global_var.get_block_number())]),
                           blockhead, None, is_adversary, blockextra,
-                          False, global_var.get_blocksize())
+                          False, global_var.get_miniblock_size()) # Ensemble Block与miniblock具有相同大小
         new_block.blockhead.blockhash = new_block.calculate_blockhash() # 更新区块哈希信息
         new_block.last = miniblock_list[0].last
         return (new_block, True)
 
-    def mining_consensus(self, ensemble_block_list:BlockList, miner, content, is_adversary):
+    def mining_consensus(self, ensemble_block_list:BlockList, miner, content, is_adversary, q):
         """
         产生Key Block\n
         param:
             ensemble_block_list Ensemble Block列表 type:list
             miner 当前矿工ID type:int
             content 写入区块的内容 type:any
+            q 每个矿工每轮次可计算哈希的次数
         return: (new_block, pow_success)
             new_block 新Ensemble Block type:None(未挖出新块)/Block
             mining_success 挖矿成功标识 type:Bool
@@ -308,7 +315,7 @@ class PoB(Consensus):
                 return (None, False)
 
         blockhead = BlockHead(ensemble_block_list[0].blockhead.prehash, None, time.time_ns(),
-                              None, None, ensemble_block_list[0].blockhead.height, miner)
+                              self.target, None, ensemble_block_list[0].blockhead.height, miner)
         current_task_queue = ensemble_block_list[0].last.blockextra.task_queue
         current_task_list = ensemble_block_list[0].last.blockextra.task_list
         new_task_queue = current_task_queue[1:]
@@ -319,11 +326,19 @@ class PoB(Consensus):
                                       copy.copy(current_task_list), new_task_queue,
                                       None, None, optimal_metric, Block.BlockType.KEY_BLOCK,
                                       None, None, validate_list, ensemble_block_list.copy())
-        new_block = Block(''.join(['K',str(global_var.get_key_block_number())]),
-                          blockhead, content, is_adversary, blockextra,
+        new_block = Block(None, blockhead, content, is_adversary, blockextra,
                           False, global_var.get_blocksize())
-        new_block.blockhead.blockhash = new_block.calculate_blockhash() # 更新区块哈希信息
-        return (new_block, True)
+        for i in range(q):
+            new_block.blockhead.nonce = self.ctr
+            current_hash = new_block.calculate_blockhash() # 计算区块哈希信息
+            if int(current_hash,16) < int(self.target,16):
+                # 找到有效的PoW
+                new_block.name = 'K'+str(global_var.get_key_block_number())
+                new_block.blockhead.blockhash = current_hash
+                self.ctr = 0
+                return (new_block, True)
+            self.ctr += 1
+        return (None, False)
 
 # 对PoB类中的函数进行简单验证
 if __name__ == "__main__":
