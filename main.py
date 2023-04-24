@@ -79,7 +79,7 @@ def main(
     n = 10,  # number of miners
     t = 0,   # maximum number of adversary
     q = 5,
-    target = '07FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF',
+    target = '00FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF',
     blocksize = 16,
     miniblock_size = 2,
     result_path = None):

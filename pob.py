@@ -350,8 +350,11 @@ if __name__ == "__main__":
     test_chain_1 = Chain()
     test_chain_2 = Chain()
     consensus = PoB()
+    consensus.setparam('7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF')
     # 生成miniblock
     miniblock_list_test = []
+    import time
+    trainging_start = time.time()
     for miner_id in range(N):
         new_miniblock_test,training_success = consensus.train(test_chain_1.lastblock,
                                                               miner_id, False)
@@ -359,6 +362,7 @@ if __name__ == "__main__":
             raise Warning("Training failed for some reason")
         print('Miniblock',new_miniblock_test.name,'from miner', miner_id, 'ready')
         miniblock_list_test.append(new_miniblock_test)
+    trainging_end = time.time()
     # 出块
     new_block_test, mining_success = consensus.ensemble(miniblock_list_test, 0, False)
     if mining_success:
@@ -368,7 +372,7 @@ if __name__ == "__main__":
 
     # 产生Key Block
     new_key_block_test, mining_success = consensus.mining_consensus([new_block_test],
-                                                                    0,12,False)
+                                                                    0,12,False,1000)
     if mining_success:
         print('Key Block',new_key_block_test.name,'successfully generated')
     else:
@@ -377,6 +381,7 @@ if __name__ == "__main__":
     # 将新Key Block添加到链中
     test_chain_1.AddBlock(new_key_block_test)
     # 尝试验证该区块、添加到第二条测试链并输出结果
+    validate_start = time.time()
     if consensus.validate(new_key_block_test):
         test_chain_2.AddChain(new_key_block_test)
         # 找到最长链（假设采用最长链机制）
@@ -384,7 +389,7 @@ if __name__ == "__main__":
         depth_new_block = new_key_block_test.BlockHeight()
         if depth_2 < depth_new_block:
             test_chain_2.lastblock = new_key_block_test
-
+        validate_end = time.time()
         test_chain_2.ShowLChain()
         test_chain_2.ShowStructure1()
         print('Block metric', test_chain_2.lastblock.blockextra.metric)
@@ -404,3 +409,8 @@ if __name__ == "__main__":
 
     else:
         print("Validation of a new block failed")
+
+    print("Total Time:", time.time() - trainging_start)
+    print("Training Time:", trainging_end - trainging_start)
+    if validate_end:
+        print("Validate Time:", validate_end - validate_start)

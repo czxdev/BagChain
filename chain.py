@@ -130,7 +130,8 @@ class Block(object):
             metric_list = list(self.blockextra.validate_list.values())
             task_id = self.blockextra.task_id
             metric = self.blockextra.metric
-            hash_content = [minerid, timestamp, task_id, metric]
+            nonce = self.blockhead.nonce
+            hash_content = [minerid, nonce, timestamp, task_id, metric]
             hash_content.append(hashG(ensemble_block_hash_list+metric_list))
             hash_content.append(hashG([prehash, content]))
         return hashH(hash_content)  # 计算哈希
