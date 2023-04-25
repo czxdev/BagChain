@@ -96,8 +96,10 @@ class Miner(object):
         if self.receive_tape==[]:
             return self.Blockchain, new_update
         for otherblock in self.receive_tape:
-            if self.consensus.valid_chain(otherblock):
-                blocktmp = self.Blockchain.add_block_copy(otherblock)  # 把合法链的公共部分加入到本地区块链中
+            copylist, insert_point = self.consensus.valid_partial(otherblock, self.Blockchain)
+            if copylist is not None:
+                # 把合法链的公共部分加入到本地区块链中
+                blocktmp = self.Blockchain.insert_block_copy(copylist, insert_point)  
                 depthself = self.Blockchain.lastblock.BlockHeight()
                 depthOtherblock = otherblock.BlockHeight()
                 if depthself < depthOtherblock:

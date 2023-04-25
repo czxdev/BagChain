@@ -67,10 +67,11 @@ class Selfmining(Attack):
             # 将Adver从诚实节点中接受到的chain进行收集
             ''' 模仿诚实节点对adver集团内的attacker进行maxvalid '''
             for block in attacker.receive_tape:
-                if attacker.consensus.valid_chain(block):
+                copylist, insert_point = self.consensus.valid_partial(block, attacker.Blockchain)
+                if copylist is not None:
                     # attacker也要对接收到的block进行验证
                     # 如果验证成功添加到attacker的本地链上
-                    blocktmp = attacker.Blockchain.add_block_copy(block)
+                    blocktmp = attacker.Blockchain.insert_block_copy(copylist, insert_point)
                     depthself = attacker.Blockchain.lastblock.BlockHeight()
                     depthOtherblock = block.BlockHeight()
                     if depthself < depthOtherblock:

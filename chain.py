@@ -88,12 +88,7 @@ class Block(object):
         return hash
 
     def BlockHeight(self):
-        blocktmp = self
-        height = 0
-        while blocktmp and not blocktmp.isGenesis:
-            height = height + 1
-            blocktmp = blocktmp.last
-        return height
+        return self.blockhead.height
 
     # def printblock(self):
     #     print('in_rom:', id(self))
@@ -261,6 +256,19 @@ class Chain(object):
             # print("Add Block {} Successfully.".format(block.name))
             return block
 
+
+    def insert_block_copy(self, copylist: List[Block], insert_point: Block):
+        # 返回值：深拷贝插入完之后新插入链的块头 # TODO 补充函数说明
+        local_tmp = insert_point
+        if local_tmp:
+            while copylist:
+                receive_tmp = copylist.pop()
+                blocktmp = copy.deepcopy(receive_tmp)
+                blocktmp.last = local_tmp
+                blocktmp.next = []
+                local_tmp.next.append(blocktmp)
+                local_tmp = blocktmp
+        return local_tmp  # 返回深拷贝的最后一个区块的指针，如果没拷贝返回None
 
     def add_block_copy(self, lastblock: Block):
         # 返回值：深拷贝插入完之后新插入链的块头

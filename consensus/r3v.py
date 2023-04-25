@@ -1,6 +1,6 @@
 import time
 import math
-
+from typing import List, Tuple
 import pandas as pd
 
 import global_var
@@ -131,7 +131,37 @@ class R3V(Consensus):
             queryT += 1
         return (blocknew,VDF_success)
 
-    
+    def valid_partial(self, lastblock: Block, 
+                      local_chain: Chain) -> Tuple[List[Block], Block]:
+        '''验证某条链上不在本地链中的区块
+        param:
+            lastblock 要验证的链的最后一个区块 type:Block
+            local_chain 本地区块链 tyep:Chain
+        return:
+            copylist 需要拷贝的区块list type:List[Block]
+            insert_point 新链的插入点 type:Block
+        '''
+        receive_tmp = lastblock
+        if not receive_tmp:  # 接受的链为空，直接返回
+            return (None, None)
+        copylist = []
+        local_tmp = local_chain.search(receive_tmp)
+        ss = receive_tmp.calculate_blockhash()
+        while receive_tmp and not local_tmp:
+            block_vali = self.valid_block(receive_tmp)
+            hash = receive_tmp.calculate_blockhash()
+            if block_vali and int(hash, 16) == int(ss, 16):
+                ss = receive_tmp.blockhead.prehash
+                copylist.append(receive_tmp)
+                receive_tmp = receive_tmp.last
+                local_tmp = local_chain.search(receive_tmp)
+            else:
+                return (None, None)
+        if int(receive_tmp.calculate_blockhash(), 16) == int(ss, 16):
+            return (copylist, local_tmp)
+        else:
+            return (None, None)
+
     def valid_chain(self, lastblock:Block):
         '''检验链是否合法
         应return:
