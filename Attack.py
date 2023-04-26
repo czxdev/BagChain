@@ -1,11 +1,15 @@
+import copy
 import random
+import time
+from typing import List
+from abc import ABCMeta, abstractmethod
+
+import global_var
 from chain import Block, Chain
 from external import I
-from miner import Miner
 from functions import for_name
-import global_var
-import copy
-import time
+from miner import Miner
+
 
 def get_time(f):
 
@@ -17,7 +21,7 @@ def get_time(f):
         return res
     return inner
 
-from abc import ABCMeta, abstractmethod
+
 class Attack(metaclass=ABCMeta): 
 
     @abstractmethod
@@ -28,16 +32,16 @@ class Attack(metaclass=ABCMeta):
  
 class Selfmining(Attack):
 
-    def __init__(self, globalchain:Chain, target, network, Adversary:list, num_rounds) -> None:
-        self.Adver = [Miner(0,0,0)]
+    def __init__(self, globalchain:Chain, target, network, Adversary:List[Miner], num_rounds) -> None:
         self.Adver = Adversary
         self.num_rounds = num_rounds
 
-        self.mine_chain = Chain()
+        self.mine_chain = copy.deepcopy(globalchain)
 
-        self.honest_chain = Chain()
+        self.honest_chain = copy.deepcopy(globalchain)
 
-        self.base_chain = Chain()
+        self.base_chain = copy.deepcopy(globalchain)
+
 
         # 不再补充设置q和target
         self.q = self.Adver[0].q
@@ -63,10 +67,11 @@ class Selfmining(Attack):
             # 将Adver从诚实节点中接受到的chain进行收集
             ''' 模仿诚实节点对adver集团内的attacker进行maxvalid '''
             for block in attacker.receive_tape:
-                if attacker.consensus.validate(block):
+                copylist, insert_point = self.consensus.valid_partial(block, attacker.Blockchain)
+                if copylist is not None:
                     # attacker也要对接收到的block进行验证
                     # 如果验证成功添加到attacker的本地链上
-                    blocktmp = attacker.Blockchain.AddChain(block)
+                    blocktmp = attacker.Blockchain.insert_block_copy(copylist, insert_point)
                     depthself = attacker.Blockchain.lastblock.BlockHeight()
                     depthOtherblock = block.BlockHeight()
                     if depthself < depthOtherblock:
@@ -149,20 +154,20 @@ class Selfmining(Attack):
         #if self.consensus.ctr == 0:
             # print("self block")
             
-        if mine_success == True:
+        if mine_success is True:
             # self.mine_chain.AddBlock(newblock)
             # self.mine_chain.lastblock = newblock
             self.attacklog.append([self.round,''.join(['Selfly mine ',newblock.name,'\n',\
             'honest chain:',str(self.honest_chain.lastblock.BlockHeight()),'\n',\
             'self chain:',str(self.mine_chain.lastblock.BlockHeight()),'\n',\
             'base chain:',str(self.base_chain.lastblock.BlockHeight())])])
-            self.base_chain.AddBlock(newblock)
+            self.base_chain.add_block_direct(newblock)
             #self.base_chain.lastblock = newblock
             # 更新挖掘的base_chain
             self.mine_chain = copy.deepcopy(self.base_chain)
             #self.mine_chain.AddChain(newblock)
             # 挖掘的结果更新到mine_chain
-            self.globalchain.AddChain(newblock)
+            self.globalchain.add_block_copy(newblock)
         return newblock, mine_success  # 返回挖出的区块，
 
 

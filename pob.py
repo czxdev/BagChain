@@ -3,7 +3,7 @@ import time
 import copy
 import random
 import numpy as np
-
+from typing import Tuple, List
 import global_var
 from consensus import Consensus
 from chain import Block, BlockHead, Chain, BlockList
@@ -66,7 +66,7 @@ class PoB(Consensus):
 
         return current_task.metric_evaluator(y,y_pred) # 评估模型集成之后的性能
 
-    def validate(self, lastblock:Block):
+    def valid_chain(self, lastblock:Block):
         '''验证区块链合法性\n
         param:
             lastblock 待验证的区块链的最后一个区块 type:Block
@@ -97,6 +97,37 @@ class PoB(Consensus):
                 return False
         return True
 
+    def valid_partial(self, lastblock: Block, 
+                      local_chain: Chain) -> Tuple[List[Block], Block]:
+        '''验证某条链上不在本地链中的区块
+        param:
+            lastblock 要验证的链的最后一个区块 type:Block
+            local_chain 本地区块链 tyep:Chain
+        return:
+            copylist 需要拷贝的区块list type:List[Block]
+            insert_point 新链的插入点 type:Block
+        '''
+        receive_tmp = lastblock
+        if not receive_tmp:  # 接受的链为空，直接返回
+            return (None, None)
+        copylist = []
+        local_tmp = local_chain.search(receive_tmp)
+        ss = receive_tmp.calculate_blockhash()
+        while receive_tmp and not local_tmp:
+            block_vali = self.validate_key_block(receive_tmp)
+            hash = receive_tmp.calculate_blockhash()
+            if block_vali and int(hash, 16) == int(ss, 16):
+                ss = receive_tmp.blockhead.prehash
+                copylist.append(receive_tmp)
+                receive_tmp = receive_tmp.last
+                local_tmp = local_chain.search(receive_tmp)
+            else:
+                return (None, None)
+        if int(receive_tmp.calculate_blockhash(), 16) == int(ss, 16):
+            return (copylist, local_tmp)
+        else:
+            return (None, None)
+    
     def validate_key_block(self, block:Block):
         '''验证Key Block的合法性\n
         param:
@@ -136,7 +167,7 @@ class PoB(Consensus):
                 return False
             # 检查Ensemble Block的哈希以及validate list中各项
             blockhash = ensemble_block.calculate_blockhash()
-            if not self.validblock(ensemble_block) or \
+            if not self.valid_block(ensemble_block) or \
                 blockhash not in block.blockextra.validate_list:
                 return False
             if validate_list[blockhash] != self.validate_evaluate_miniblock(
@@ -148,7 +179,7 @@ class PoB(Consensus):
             return False
         return True
 
-    def validblock(self, block:Block):
+    def valid_block(self, block:Block):
         '''验证Ensemble Block的合法性\n
         param:
             block 待检验的Ensemble Block type:Block
@@ -349,6 +380,8 @@ if __name__ == "__main__":
     print('Initialization finished')
     test_chain_1 = Chain()
     test_chain_2 = Chain()
+    test_chain_1.create_genesis_block()
+    test_chain_2.create_genesis_block()
     consensus = PoB()
     consensus.setparam('7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF')
     # 生成miniblock
@@ -379,11 +412,11 @@ if __name__ == "__main__":
         raise Warning('Failed to mine a new block')
 
     # 将新Key Block添加到链中
-    test_chain_1.AddBlock(new_key_block_test)
+    test_chain_1.add_block_direct(new_key_block_test)
     # 尝试验证该区块、添加到第二条测试链并输出结果
     validate_start = time.time()
-    if consensus.validate(new_key_block_test):
-        test_chain_2.AddChain(new_key_block_test)
+    if consensus.valid_chain(new_key_block_test):
+        test_chain_2.add_block_copy(new_key_block_test)
         # 找到最长链（假设采用最长链机制）
         depth_2 = test_chain_2.lastblock.BlockHeight()
         depth_new_block = new_key_block_test.BlockHeight()

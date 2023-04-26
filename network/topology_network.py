@@ -98,7 +98,7 @@ class TopologyNetwork(Network):
         '''
         block_packet = self.BlockPacketTpNet(newblock, minerid, round, self.TTL, self)
         self.network_tape.append(block_packet)
-        self.miners[minerid].receiveBlock(newblock)  # 这一条主要是防止adversary集团发出区块的代表，自己的链上没有该区块
+        self.miners[minerid].receive_block(newblock)  # 这一条主要是防止adversary集团发出区块的代表，自己的链上没有该区块
         # print('access network ', 'miner:', minerid, newblock.name, end='', flush=True) # 加[end='']是打印进度条的时候防止换行出错哈 by CY
         logger.info("access network miner:%d %s at round %d", minerid, newblock.name, round)
 
@@ -152,7 +152,7 @@ class TopologyNetwork(Network):
         收到一个包,本地链上没有,就添加到receive_tape中并转发给接下来的目标
         否则不对该包进行处理
         '''
-        if self.miners[current_miner].receiveBlock(block_packet.block) is True:
+        if self.miners[current_miner].receive_block(block_packet.block) is True:
             # if the block not in local chain 
             # or the miniblock hasn't been received or has been dropped
             block_packet.received_miners.append(current_miner) # 记录已接收的矿工
@@ -170,7 +170,7 @@ class TopologyNetwork(Network):
         # 选择接下来赚翻的目标--除了from_miner和已包含该块的所有neighbor矿工
         bp = block_packet
         next_targets = [mi for mi in self.miners[current_miner].neighbor_list 
-                        if mi != from_miner and not self.miners[mi].isInLocalChain(bp.block)]
+                        if mi != from_miner and not self.miners[mi].is_in_local_chain(bp.block)]
         next_delays = []
         for nexttg in next_targets:
             next_delays.append(self.cal_delay(bp.block, current_miner, nexttg))
@@ -233,7 +233,8 @@ class TopologyNetwork(Network):
                 self.gen_network_coo()
             elif gen_net_approach == 'rand' and edge_prop is not None:
                 self.gen_network_rand(edge_prop)
-            else:raise errors.NetGenError('网络生成方式错误！')
+            else:
+                raise errors.NetGenError('网络生成方式错误！')
             #检查是否有孤立节点或不连通部分
             if not nx.number_of_isolates(self.network_graph):
                 if nx.number_connected_components(self.network_graph) == 1:
@@ -246,7 +247,8 @@ class TopologyNetwork(Network):
                     self.save_network_attribute()
                 else:
                     raise errors.NetUnconnetedError('网络存在不连通部分!')
-            else:raise errors.NetIsoError(f'网络存在孤立节点! {list(nx.isolates(self.network_graph))}')
+            else:
+                raise errors.NetIsoError(f'网络存在孤立节点! {list(nx.isolates(self.network_graph))}')
         except (errors.NetMinerNumError, errors.NetAdjError, errors.NetIsoError, 
                 errors.NetUnconnetedError, errors.NetGenError) as error:
             print(error)

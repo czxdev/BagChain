@@ -4,6 +4,7 @@ from enum import Enum
 
 import global_var
 from chain import Block, Chain, BlockList
+from consensus import Consensus
 from functions import for_name
 from external import I
 from task import Task
@@ -30,7 +31,7 @@ class Miner(object):
         self.q = q
         self.Blockchain = Chain()   # 维护的区块链
         #共识相关
-        self.consensus = for_name(global_var.get_consensus_type())()    # 共识
+        self.consensus:Consensus = for_name(global_var.get_consensus_type())()    # 共识
         self.consensus.setparam(target)                                 # 设置共识参数
         #输入内容相关
         self.input = 0          # 要写入新区块的值
@@ -41,7 +42,6 @@ class Miner(object):
         self.buffer_size = 3
         #网络相关
         self.neighbor_list = []
-        self.otherchain = Chain()
         self.processing_delay=0    #处理时延
         #共识协议相关
         self.state = self.MinerState.MINING_MINIBLOCK
@@ -68,23 +68,32 @@ class Miner(object):
                 return message
         return None
 
-    def set_Adversary(self, isAdversary:bool):
+    def set_adversary(self, isAdversary:bool):
         '''
         设置是否为对手节点
         isAdversary=True为对手节点
         '''
         self.isAdversary = isAdversary
 
-    def isInLocalChain(self,block:Block):
+    def is_in_local_chain(self,block:Block):
         '''Check whether a block is in local chain,
         param: block: The block to be checked
         return: flagInLocalChain: Flag whether the block is in local chain.If not, return False; else True.'''
-        if block not in self.Blockchain:
-            return False
-        else:
-            return True
+        if block.blockextra.blocktype is block.BlockType.MINIBLOCK:
+            if block in self.miniblock_storage or \
+                block in self.miniblock_pending_list:
+                return True
+        elif block.blockextra.blocktype is block.BlockType.KEY_BLOCK:
+            if block in self.Blockchain:
+                return True
+        elif block.blockextra.blocktype is block.BlockType.BLOCK:
+            if block in self.ensemble_block_storage or \
+                block in self.ensemble_block_pending_list:
+                return True
+        return False
 
-    def receiveBlock(self,rcvblock:Block):
+
+    def receive_block(self,rcvblock:Block):
         '''Interface between network and miner.
         Append the rcvblock(have not received before) to receive_tape, 
         and add to local chain in the next round. 
@@ -95,28 +104,13 @@ class Miner(object):
             already in local chain or in miniblock_storage. 
             If not, return True; else False.
         '''
-        if rcvblock.blockextra.blocktype is rcvblock.BlockType.MINIBLOCK:
-            if rcvblock not in self.miniblock_storage and \
-                rcvblock not in self.miniblock_pending_list:
-                self.receive_tape.append(rcvblock)
-                return True
-        elif rcvblock.blockextra.blocktype is rcvblock.BlockType.KEY_BLOCK:
-            if rcvblock not in self.Blockchain:
-                self.receive_tape.append(rcvblock)
-                return True
-        elif rcvblock.blockextra.blocktype is rcvblock.BlockType.BLOCK:
-            if rcvblock not in self.ensemble_block_storage and \
-                rcvblock not in self.ensemble_block_pending_list:
-                self.receive_tape.append(rcvblock)
-                return True
-
+        if not self.is_in_local_chain(rcvblock):
+            self.receive_tape.append(rcvblock)
+            return True
         return False
 
-    def sendBlock(self, to,sendblock:Block):
-        for nb in self.neighbor_list:
-            pass
 
-    def Mining(self):
+    def mining(self):
         '''挖矿\n
         return:(outcome, mine_success)
             outcome 挖出的新区块或miniblock,没有就返回none type:Block/None
@@ -170,7 +164,7 @@ class Miner(object):
                         self.ensemble_block_storage, self.Miner_ID, self.input,
                         self.isAdversary, self.q)
                 if mine_success:
-                    self.Blockchain.AddBlock(outcome)
+                    self.Blockchain.add_block_direct(outcome)
                     self.miniblock_pending_list.extend(self.miniblock_storage)
                     self.miniblock_storage = []
                     self.ensemble_block_pending_list.extend(self.ensemble_block_storage)
@@ -189,13 +183,13 @@ class Miner(object):
             IsValid 检验成功标识 type:bool
         '''
         if blockchain==None:#如果没有指定链则检查自己
-            IsValid=self.consensus.validate(self.Blockchain.lastblock)
+            IsValid=self.consensus.valid_chain(self.Blockchain.lastblock)
             if IsValid:
                 print('Miner', self.Miner_ID, 'self_blockchain validated\n')
             else:
                 print('Miner', self.Miner_ID, 'self_blockchain wrong\n')
         else:
-            IsValid = self.consensus.validate(blockchain)
+            IsValid = self.consensus.valid_chain(blockchain)
             if not IsValid:
                 print('blockchain wrong\n')
         return IsValid
@@ -224,7 +218,7 @@ class Miner(object):
                     logger.info("%s enter pending list in Miner %d",
                                     incoming_data.name, self.Miner_ID)
             elif incoming_data.blockextra.blocktype is incoming_data.BlockType.BLOCK:
-                if not self.consensus.validblock(incoming_data):
+                if not self.consensus.valid_block(incoming_data):
                     continue # 无效Ensenble Block
                 if incoming_data.last in self.Blockchain:
                     if incoming_data.last.blockhead.blockhash == \
@@ -239,9 +233,10 @@ class Miner(object):
                     logger.info("%s enter pending list in Miner %d",
                                     incoming_data.name, self.Miner_ID)
             elif incoming_data.blockextra.blocktype is incoming_data.BlockType.KEY_BLOCK:
-                if self.consensus.validate(incoming_data):
+                copylist, insert_point = self.consensus.valid_partial(incoming_data, self.Blockchain)
+                if copylist is not None:
                     # 把合法链的公共部分加入到本地区块链中
-                    blocktmp = self.Blockchain.AddChain(incoming_data)
+                    blocktmp = self.Blockchain.insert_block_copy(copylist, insert_point)
                     # 找到最长链，判断最长链的末端验证集是否已经发布
                     # 或者找到区块高度相同但是性能更好的链，但需要保证任务相同才能比较性能指标
                     depthself = self.Blockchain.lastblock.BlockHeight()
@@ -314,25 +309,34 @@ class Miner(object):
         '''执行核心共识协议'''
         chain_update, update_index = self.maxvalid()
         # if input contains READ:
-        # write R(Cnew) to OUTPUT() 这个output不知道干什么用的
+        # write R(Cnew) to OUTPUT() 这个output不知干什么用的道
         self.input = I(round, self.input_tape)  # I function
         #print("outer2",honest_miner.input)
-        newblock, mine_success = self.Mining()
+        newblock, mine_success = self.mining()
         #print("outer3",honest_miner.input)
         if update_index or mine_success:  # Cnew != C
             return newblock
         else:
             return None  #  如果没有更新 返回空告诉environment回合结束
-
-
-if __name__ =='__main__':
-    global_var.__init__()
-    miner1=Miner(1,2,3)
-    miner1.receive_buffer=[0,4,6]
-    list=[0,1,2,3,4,5,6]
-    miner1.receiveBlock(9)
-    print(miner1.receive_buffer)
-    print(miner1.receive_tape)
-    miner1.receiveBlock(Block())
-    print(miner1.receive_buffer)
-    print(miner1.receive_tape)
+        
+    # def ValiChain(self, blockchain: Chain = None):
+    #     '''
+    #     检查是否满足共识机制\n
+    #     相当于原文的validate
+    #     输入:
+    #         blockchain 要检验的区块链 type:Chain
+    #         若无输入,则检验矿工自己的区块链
+    #     输出:
+    #         IsValid 检验成功标识 type:bool
+    #     '''
+    #     if blockchain is None:#如果没有指定链则检查自己
+    #         IsValid=self.consensus.valid_chain(self.Blockchain.lastblock)
+    #         if IsValid:
+    #             print('Miner', self.Miner_ID, 'self_blockchain validated\n')
+    #         else:
+    #             print('Miner', self.Miner_ID, 'self_blockchain wrong\n')
+    #     else:
+    #         IsValid = self.consensus.valid_chain(blockchain)
+    #         if not IsValid:
+    #             print('blockchain wrong\n')
+    #     return IsValid

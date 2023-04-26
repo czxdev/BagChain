@@ -1,7 +1,6 @@
-import importlib
-from base64 import encode
 import hashlib
-import global_var
+import importlib
+
 
 def hashsha256(contentlist:list)->str:
     '''

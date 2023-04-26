@@ -1,9 +1,8 @@
-# external functions (V,I,R, etc)
-from itertools import chain
-from chain import Block, Chain, BlockHead
-from functions import hashH, hashG
-# from miner import Miner
+''' external functions (V,I,R, etc)'''
+from typing import List
+
 import global_var
+from chain import Block, Chain
 
 
 def V(xc:list):
@@ -49,7 +48,7 @@ def R(blockchain:Chain):
 
 def common_prefix(prefix1:Block, chain2:Chain):
     while prefix1:
-        if chain2.SearchChain(prefix1):
+        if chain2.search_chain(prefix1):
             break
         else:
             prefix1 = prefix1.last
@@ -65,14 +64,14 @@ def chain_quality(blockchain:Chain):
     if not blockchain.head:
         xc = []
     else:
-        blocktmp = blockchain.LastBlock()
+        blocktmp = blockchain.last_block()
         xc = []
         while blocktmp:
             xc.append(blocktmp.isAdversaryBlock)
             blocktmp = blocktmp.last
     cq_dict = {'Honest Block':0,'Adversary Block':0}
     for item in xc:
-        if item==True:
+        if item is True:
             cq_dict.update({'Adversary Block':xc.count(item)})
         else:
             cq_dict.update({'Honest Block':xc.count(item)})
@@ -85,10 +84,10 @@ def chain_quality(blockchain:Chain):
 def chain_growth(blockchain:Chain):
     '''
     计算链成长指标
-    输入：blockchain
+    输入: blockchain
     输出：
     '''
-    last_block = blockchain.LastBlock()
+    last_block = blockchain.last_block()
     return last_block.BlockHeight()
 
 
@@ -119,7 +118,7 @@ def printchain2txt(miner,chain_data_url='chain_data.txt'):
         print('\n',file=f)
 
         #打印链信息
-        q = [miner.Blockchain.head]
+        q:List[Block] = [miner.Blockchain.head]
         blocklist = []
         while q:
             block = q.pop(0)
@@ -129,8 +128,8 @@ def printchain2txt(miner,chain_data_url='chain_data.txt'):
             print("isAdversaryBlock:",block.isAdversaryBlock,'\n'
             "prehash:",block.blockhead.prehash,'\n'
             "blockhash:",block.blockhead.blockhash,'\n'
-            # "target:",block.blockhead.target,'\n'
-            # "nonce:",block.blockhead.nonce,'\n'
+            "target:",block.blockhead.target,'\n'
+            "nonce:",block.blockhead.nonce,'\n'
             "height:",block.blockhead.height,'\n'
             "Miner:",block.blockhead.miner,'\n'
             "timestamp:",block.blockhead.timestamp,'\n'

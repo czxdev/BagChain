@@ -6,15 +6,22 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from Attack import Attack, Selfmining
-from functions import for_name
+import copy
+import time
+import math
+import random
+from typing import List
+import numpy as np
+
+
 import global_var
-from consensus import Consensus
+import network
 from chain import Block, Chain, BlockList
 from miner import Miner
+from Attack import Selfmining
+from functions import for_name
+from external import common_prefix, chain_quality, chain_growth, printchain2txt
 from task import Task
-from external import V, I ,R , common_prefix, chain_quality, chain_growth, printchain2txt
-
 logger = logging.getLogger(__name__)
 
 def get_time(f):
@@ -29,7 +36,7 @@ def get_time(f):
 
 class Environment(object):
 
-    def __init__(self,  t, q_ave, q_distr, target, network_param, *adversary_ids):
+    def __init__(self,  t = None, q_ave = None, q_distr = None, target = None, network_param = None, *adversary_ids, **genesis_blockextra):
         '''包括了整个仿真器的一切参数和数据，驱动仿真器的其余要素完成仿真任务'''
         #environment parameters
         self.miner_num = global_var.get_miner_num()  # number of miners
@@ -39,6 +46,13 @@ class Environment(object):
         self.target = target
         self.total_round = 0
         self.global_chain = Chain()  # a global tree-like data structure
+        # generate miners
+        self.miners:list[Miner] = []
+        self.create_miners_q_rand() if q_distr =='rand' else self.create_miners_q_equal()
+        print(genesis_blockextra)
+        self.envir_create_genesis_block(**genesis_blockextra)
+        self.adversary_mem:List[Miner] = []
+        self.select_adversary(*adversary_ids)
         # 计划任务的队列schedule（用来发布数据集）
         # 队列中中每一项为一个三元元组(任务执行时间、任务执行函数、任务附加数据)
         self.schedule = []
@@ -49,13 +63,8 @@ class Environment(object):
         self.winning_block_record = {} # {height : block.name}
         self.test_set_metric = {} # versus block height Key:Height Value:Metric
         self.validation_set_metric = {} # versus block height Key:Height Value:Metric
-        # generate miners
-        self.miners:list[Miner] = []
-        self.set_q_rand() if q_distr =='rand' else self.set_q_equal()
-        self.adversary_mem = []
-        self.select_adversary(*adversary_ids)
         # generate network
-        self.network = for_name(global_var.get_network_type())(self.miners)    #网络类型
+        self.network:network.Network = for_name(global_var.get_network_type())(self.miners)    #网络类型
         print(
             '\nParameters:','\n',
             'Miner Number: ', self.miner_num,'\n',
@@ -94,7 +103,7 @@ class Environment(object):
         '''
         self.adversary_mem=random.sample(self.miners,self.max_adversary)
         for adversary in self.adversary_mem:
-            adversary.set_Adversary(True)
+            adversary.set_adversary(True)
         return self.adversary_mem
 
     def select_adversary(self,*Miner_ID):
@@ -104,20 +113,20 @@ class Environment(object):
         '''   
         for miner in Miner_ID:
             self.adversary_mem.append(self.miners[miner])
-            self.miners[miner].set_Adversary(True)
+            self.miners[miner].set_adversary(True)
         return self.adversary_mem
 
     def clear_adversary(self):
         '''清空所有对手'''
         for adversary in self.adversary_mem:
-            adversary.set_Adversary(False)
+            adversary.set_adversary(False)
         self.adversary_mem=[]
 
-    def set_q_equal(self):
+    def create_miners_q_equal(self):
         for miner_id in range(self.miner_num):
             self.miners.append(Miner(miner_id, self.q_ave, self.target))
 
-    def set_q_rand(self):
+    def create_miners_q_rand(self):
         '''
         随机设置各个节点的hash rate,满足均值为q_ave,方差为1的高斯分布
         且满足全网总算力为q_ave*miner_num
@@ -139,7 +148,7 @@ class Environment(object):
             for q in q_dist:
                 self.miners.append(Miner(miner_id, q, self.target))
         return q_dist
-
+    
     def handle_block(self, newblock:Block, miner_id, round):
         '''处理BackboneProtocol返回的Block对象
         param:
@@ -153,7 +162,7 @@ class Environment(object):
             return None
         self.network.access_network(newblock,miner_id,round)
         if newblock.blockextra.blocktype is newblock.BlockType.KEY_BLOCK: # Key Block要合并到全局链
-            self.global_chain.AddChain(newblock)
+            self.global_chain.add_block_copy(newblock)
         elif newblock.blockextra.blocktype is newblock.BlockType.MINIBLOCK and \
             newblock not in self.global_miniblock_list:
             self.global_miniblock_list.append(newblock)
@@ -163,13 +172,22 @@ class Environment(object):
 
         return newblock.blockextra.blocktype
 
+    def envir_create_genesis_block(self, **blockextra):
+        '''create genesis block for all the miners in the system.'''
+        self.global_chain.create_genesis_block(**blockextra)
+        for miner in self.miners:
+            miner.Blockchain.create_genesis_block(**blockextra)
+
     #@get_time
     def exec(self, num_rounds):
+
         '''
         调用当前miner的BackboneProtocol完成mining
         当前miner用addblock功能添加上链
         之后gobal_chain用深拷贝的addchain上链
         '''
+        # for miner in self.miners:
+        #     print(miner.Blockchain.head)
         if self.adversary_mem:
             attack = Selfmining(self.global_chain, self.target, self.network, self.adversary_mem, num_rounds)
         t_0 = time.time()
