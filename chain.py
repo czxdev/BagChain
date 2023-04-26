@@ -258,7 +258,13 @@ class Chain(object):
 
 
     def insert_block_copy(self, copylist: List[Block], insert_point: Block):
-        # 返回值：深拷贝插入完之后新插入链的块头 # TODO 补充函数说明
+        '''在指定的插入点将指定的链合入区块树
+        param:
+            copylist 待插入的链 type:List[Block]
+            insert_point 区块树中的节点，copylist中的链从这里插入 type:Block
+        return:
+            local_tmp 返回值：深拷贝插入完之后新插入链的块头 type:Block
+        '''
         local_tmp = insert_point
         if local_tmp:
             while copylist:
