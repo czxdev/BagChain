@@ -3,13 +3,18 @@ import time
 import copy
 import random
 import numpy as np
+import logging
 from typing import Tuple, List
+from numpy import ndarray
+
 import global_var
 from consensus import Consensus
 from chain import Block, BlockHead, Chain, BlockList
 from task import Task
 from functions import hashsha256
 from main import global_task_init,global_var_init
+
+logger = logging.getLogger(__name__)
 
 def find_task_by_id(block:Block, task_id:int) -> Task:
     '''从block或者miniblock的前一区块中找到id与task_id相符的任务\n
@@ -26,9 +31,13 @@ def find_task_by_id(block:Block, task_id:int) -> Task:
 class PoB(Consensus):
     '''继承Consensus类，实现共识算法'''
     def __init__(self):
-        '''初始化，目前PoB没有需要初始化的成员变量'''
+        '''初始化'''
         self.target = '0'
         self.ctr=0 #计数器
+        # 通过evaluation_cache缓存predict的结果，以字符串为键，将测试集验证集上模型的预测结果装入列表作为值
+        self.evaluation_cache:dict[str,list[ndarray]] = {}
+        self.current_height = 0 # 保存当前高度
+        self.ensemble_block_validation_cache:list[str] = [] # 缓存已经验证过的ensemble_block的哈希
 
     def setparam(self, target):
         '''设置Key Block生成的难度值'''
@@ -45,16 +54,35 @@ class PoB(Consensus):
         return:
             metric 指定数据集上的性能指标
         '''
+        if self.current_height < miniblock_list[0].blockhead.height:
+            self.evaluation_cache = {} # 清空缓存
+            self.current_height = miniblock_list[0].blockhead.height
+        # elif self.current_height > miniblock_list[0].blockhead.height:
+            # logger.info("cache miss for miniblock %s",miniblock_list[0].name)
+
         if dataset_type is Task.DatasetType.TEST_SET:
             x, y = current_task.test_set
+            position = 0
         elif dataset_type is Task.DatasetType.VALIDATION_SET:
             x, y = current_task.validation_set
+            position = 1
+        else:
+            raise ValueError("evaluation on training set not allowed")
+        
         y_pred_list = []
         for miniblock in miniblock_list:
             model, miniblock_valid = self.valid_miniblock(miniblock)
             if not miniblock_valid:
                 return None
-            y_pred_list.append(model.predict(x))
+            miniblock_hash = miniblock.blockhead.blockhash
+            self.evaluation_cache.setdefault(miniblock_hash, [None,None])
+            cache = self.evaluation_cache[miniblock_hash]
+            if cache[position] is not None:
+                y_pred_list.append(cache[position])
+            else:
+                prediction = model.predict(x)
+                y_pred_list.append(prediction)
+                cache[position] = prediction
 
         # 模型整合/评估性能
         y_pred = []
@@ -192,6 +220,10 @@ class PoB(Consensus):
 
         if not block or block.blockextra.blocktype is not block.BlockType.BLOCK:
             raise TypeError('expect ensemble block')
+        
+        if block.blockhead.blockhash in self.ensemble_block_validation_cache:
+            return True
+        self.ensemble_block_validation_cache.append(block.blockhead.blockhash)
         current_task = find_task_by_id(block, block.blockextra.task_id)
         if current_task is None:
             return False

@@ -527,7 +527,11 @@ class Chain(object):
                         for miniblock in ensemble_block.blockextra.miniblock_list:
                             dot.edge(miniblock.name, ensemble_block.name)
                     # 建立Ensemble Block与Key Block的连接
-                    dot.edge(ensemble_block.name, blocktmp.name)
+                    if blocktmp.blockextra.validate_list[ensemble_block.blockhead.blockhash] \
+                        == blocktmp.blockextra.metric:
+                        dot.edge(ensemble_block.name, blocktmp.name, color='orange')
+                    else:
+                        dot.edge(ensemble_block.name, blocktmp.name)
                     # 建立Miniblock节点
                     for miniblock in ensemble_block.blockextra.miniblock_list:
                         if miniblock.name not in miniblock_name_list:
@@ -579,7 +583,11 @@ class Chain(object):
                         for miniblock in ensemble_block.blockextra.miniblock_list:
                             dot.edge(miniblock.name, ensemble_block.name)
                     # 建立Ensemble Block与Key Block的连接
-                    dot.edge(ensemble_block.name, blocktmp.name)
+                    if blocktmp.blockextra.validate_list[ensemble_block.blockhead.blockhash] \
+                        == blocktmp.blockextra.metric:
+                        dot.edge(ensemble_block.name, blocktmp.name, color='orange')
+                    else:
+                        dot.edge(ensemble_block.name, blocktmp.name)
                     # 建立Miniblock节点
                     for miniblock in ensemble_block.blockextra.miniblock_list:
                         if miniblock.name not in miniblock_name_list:
