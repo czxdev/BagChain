@@ -179,7 +179,7 @@ class Environment(object):
             miner.Blockchain.create_genesis_block(**blockextra)
 
     #@get_time
-    def exec(self, num_rounds):
+    def exec(self, num_rounds, max_height):
 
         '''
         调用当前miner的BackboneProtocol完成mining
@@ -214,6 +214,9 @@ class Environment(object):
                     if self.handle_block(new_block, self.miners[i].Miner_ID, round) \
                         is Block.BlockType.KEY_BLOCK:
                         temp_key_block_list.append(new_block)
+                        if new_block.blockhead.height > max_height:
+                            self.total_round = self.total_round + round
+                            return
                     self.miners[i].input_tape = []  # clear the input tape
                     self.miners[i].receive_tape = []  # clear the communication tape
             last_winningblock = None
@@ -269,7 +272,7 @@ class Environment(object):
 
             # 错误检查，如果超过一定轮数没有新区块或miniblock，可能是系统出现未知错误
             network_idle_counter += 1 # 没有新的区块或miniblock，闲置轮数+1
-            if network_idle_counter > 100: # 如果调整了区块与miniblock大小，注意修改该阈值
+            if network_idle_counter > 500: # 如果调整了区块与miniblock大小，注意修改该阈值
                 logger.error("Blockchain system freeze, no more blocks or miniblocks")
 
             self.network.diffuse(round) 
