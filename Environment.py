@@ -133,8 +133,6 @@ class Environment(object):
         当前miner用addblock功能添加上链
         之后gobal_chain用深拷贝的addchain上链
         '''
-        for miner in self.miners:
-            print(miner.Blockchain.head)
         if self.adversary_mem:
             attack = Selfmining(self.global_chain, self.target, self.network, self.adversary_mem, num_rounds)
         t_0 = time.time()
@@ -238,8 +236,8 @@ class Environment(object):
 
         self.global_chain.ShowStructureWithGraphviz()
 
-        network_stats = self.network.calculate_stats()
-        print('Average network delay:',network_stats["average_network_delay"],'rounds')
+        ave_block_propagation_times = self.network.cal_block_propagation_times()
+        print('Block propagation times:', ave_block_propagation_times)
 
 
         if self.network.__class__.__name__=='TopologyNetwork':

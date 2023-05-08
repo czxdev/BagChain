@@ -5,6 +5,8 @@
 /.vscode/
 /bin/
 /Results/
+/block/
+/pyproject.toml
 
 **/__pycache__
 
@@ -23,6 +25,7 @@
 *.exe
 *.o
 *.so
+*.pdf
 # compression file
 *.7z
 *.dmg
