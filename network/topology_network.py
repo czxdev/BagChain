@@ -62,7 +62,8 @@ class TopologyNetwork(Network):
         self.show_label = None
         self.gen_net_approach = None
         self.save_routing_graph = None
-        self.edge_prob = None
+        # self.edge_prob = None
+        self.ave_degree = None
         self.TTL = None
         # 拓扑图，初始默认全不连接
         self.tp_adjacency_matrix = np.zeros((self.MINER_NUM, self.MINER_NUM))
@@ -71,6 +72,7 @@ class TopologyNetwork(Network):
         self.network_tape:List[BlockPacketTpNet] = []
         # status
         self.ave_block_propagation_times = {
+            '5%': 0,
             '10%': 0,
             '20%': 0,
             '30%': 0,
@@ -82,7 +84,8 @@ class TopologyNetwork(Network):
             '90%': 0,
             '100%': 0
         }
-        self.block_num_bpt = [0 for _ in range(10)]
+        self.target_percents = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
+        self.block_num_bpt = [0 for _ in range(len(self.target_percents))]
         # 结果保存路径
         NET_RESULT_PATH = global_var.get_net_result_path()
         with open(NET_RESULT_PATH / 'routing_history.json', 'a+',  encoding='utf-8') as f:
@@ -92,7 +95,7 @@ class TopologyNetwork(Network):
 
 
     def set_net_param(self, gen_net_approach = None, TTL = None, 
-                      save_routing_graph = None, edge_prob = None, show_label = None):
+                      save_routing_graph = None, ave_degree = None, show_label = None):
         '''设置网络参数
         param:  gen_approach(str): 生成网络的方式, 'adj'邻接矩阵, 'coo'coo格式的稀疏矩阵, 'rand'随机生成
                 TTL(int): 区块的最大生存周期, 为了防止孤立节点的存在, 或adversary日蚀攻击,
@@ -101,10 +104,10 @@ class TopologyNetwork(Network):
         if show_label is not None:
             self.show_label = show_label
         if gen_net_approach is not None:
-            if  gen_net_approach == 'rand' and edge_prob is not None:
+            if  gen_net_approach == 'rand' and ave_degree is not None:
                 self.gen_net_approach = gen_net_approach
-                self.edge_prob = edge_prob
-                self.generate_network(gen_net_approach,edge_prob)
+                self.ave_degree = ave_degree
+                self.generate_network(gen_net_approach, ave_degree)
             else:
                 self.gen_net_approach = gen_net_approach
                 self.edge_prob = None
@@ -191,7 +194,8 @@ class TopologyNetwork(Network):
         if  receive_success is True:
             # record the miner received the block
             block_packet.received_miners.append(current_miner)
-            self.record_block_propagation_time(block_packet, round) 
+            self.record_block_propagation_time(block_packet, round)
+            # logger.info(f"{block_packet.block.name}:{len(block_packet.received_miners)} at round {round}") 
             # execute forward strategy
             self.normal_forward(from_miner, current_miner, block_packet, round)
         return receive_success
@@ -206,20 +210,21 @@ class TopologyNetwork(Network):
             return a == round(b * percentage)
 
         rcv_rate = -1
-        for i in range(10):
-            if is_closest_to_percentage(rn, mn, 0.1*(i+1)):
-                rcv_rate = 0.1*(i+1)
+        for p in self.target_percents:
+            if is_closest_to_percentage(rn, mn, p):
+                rcv_rate = p
                 break
-        logger.info(f"{bp.block.name}:{bp.received_miners},{rcv_rate} at round {r}")
-        if rcv_rate != -1 and int(rcv_rate-1) in range(10):
+        if rcv_rate != -1 and rcv_rate in self.target_percents:
+            logger.info(f"{bp.block.name}:{rn},{rcv_rate} at round {r}")
             bpt_key = f'{int(rcv_rate * 100)}%'
             self.ave_block_propagation_times[bpt_key] += r-bp.round
-            self.block_num_bpt[int(rcv_rate * 10 -1)] += 1
+
+            self.block_num_bpt[self.target_percents.index(rcv_rate)] += 1
 
     
     def cal_block_propagation_times(self):
-        for i in range(10):
-            bpt_key = f'{int((i + 1) * 10)}%'
+        for i , p in enumerate(self.target_percents):
+            bpt_key = f'{int(p * 100)}%'
             total_bpt = self.ave_block_propagation_times[bpt_key]
             total_num = self.block_num_bpt[i]
             if total_num == 0:
@@ -253,8 +258,9 @@ class TopologyNetwork(Network):
     def cal_delay(self, block, sourceid, targetid):
         '''计算sourceid和targetid之间的时延'''
         # 传输时延=块大小除带宽 且传输时延至少1轮
-        transmision_delay = ceil(
-            block.blocksize_byte * 8 / self.network_graph.edges[sourceid, targetid]['bandwidth'])
+        bw_mean = self.network_graph.edges[sourceid, targetid]['bandwidth']
+        bandwidth = np.random.normal(bw_mean,0.2*bw_mean)
+        transmision_delay = ceil(block.blocksize_byte * 8 / bandwidth)
         # 时延=处理时延+传输时延
         delay = self.miners[sourceid].processing_delay + transmision_delay
         return delay
@@ -269,7 +275,7 @@ class TopologyNetwork(Network):
         return neighbor_delays
     
 
-    def generate_network(self, gen_net_approach, edge_prop=None):
+    def generate_network(self, gen_net_approach, ave_degree=None):
         '''
         根据csv文件的邻接矩'adj'或coo稀疏矩阵'coo'生成网络拓扑    
         '''
@@ -279,8 +285,8 @@ class TopologyNetwork(Network):
                 self.gen_network_adj()
             elif gen_net_approach == 'coo':
                 self.gen_network_coo()
-            elif gen_net_approach == 'rand' and edge_prop is not None:
-                self.gen_network_rand(edge_prop)
+            elif gen_net_approach == 'rand' and ave_degree is not None:
+                self.gen_network_rand(ave_degree)
             else:
                 raise errors.NetGenError('网络生成方式错误！')
             #检查是否有孤立节点或不连通部分
@@ -308,7 +314,7 @@ class TopologyNetwork(Network):
         network_attributes={
             'miner_num':self.MINER_NUM,
             'Generate Approach':self.gen_net_approach,
-            'Generate Edge Probability':self.edge_prob,
+            'Generate Edge Probability':self.ave_degree/self.MINER_NUM,
             'Diameter':nx.diameter(self.network_graph),
             'Average Shortest Path Length':round(nx.average_shortest_path_length(self.network_graph), 3),
             'Degree Histogram': nx.degree_histogram(self.network_graph),
@@ -319,19 +325,20 @@ class TopologyNetwork(Network):
         NET_RESULT_PATH = global_var.get_net_result_path()
         with open(NET_RESULT_PATH / 'Network Attributes.txt', 'a+', encoding='utf-8') as f:
             f.write('Network Attributes'+'\n')
-            print('Network Attributes'+'\n')
+            print('Network Attributes')
             for k,v in network_attributes.items():
                 f.write(str(k)+': '+str(v)+'\n')
-                print(str(k)+': '+str(v)+'\n')
+                print(' '*4 + str(k)+': '+str(v))
+            print('\n')
 
 
-    def gen_network_rand(self, edge_prop):
+    def gen_network_rand(self, ave_degree):
         """采用Erdős-Rényi算法生成随机图"""
+        edge_prop = ave_degree/self.MINER_NUM
         self.network_graph = nx. gnp_random_graph(self.MINER_NUM, edge_prop)
         if nx.number_of_isolates(self.network_graph) > 0:
             iso_nodes = list(nx.isolates(self.network_graph))
             not_iso_nodes = [nd for nd in list(self.network_graph.nodes) if nd not in iso_nodes]
-            print(iso_nodes, not_iso_nodes)
             targets = np.random.choice(not_iso_nodes, len(iso_nodes))
             for m1, m2 in zip(iso_nodes, targets):
                 self.network_graph.add_edge(m1, m2)
@@ -589,30 +596,33 @@ class TopologyNetwork(Network):
         stats['average_network_delay'] = sum(delay_list)/len(delay_list)
         return stats
 if __name__ == '__main__':
-    rn = 5
-    mn = 23
-    block_propagation_times = {
-            '10%': 0,
-            '20%': 0,
-            '30%': 0,
-            '40%': 0,
-            '50%': 0,
-            '60%': 0,
-            '70%': 0,
-            '80%': 0,
-            '90%': 0,
-            '100%': 0
-        }
-    def is_closest_to_percentage(a, b, percentage):
-        return a == round(b * percentage)
+    # rn = 5
+    # mn = 23
+    # block_propagation_times = {
+    #         '10%': 0,
+    #         '20%': 0,
+    #         '30%': 0,
+    #         '40%': 0,
+    #         '50%': 0,
+    #         '60%': 0,
+    #         '70%': 0,
+    #         '80%': 0,
+    #         '90%': 0,
+    #         '100%': 0
+    #     }
+    # def is_closest_to_percentage(a, b, percentage):
+    #     return a == round(b * percentage)
 
-    rcv_rate = -1
-    for i in range(10):
-        if is_closest_to_percentage(rn, mn, 0.1*(i+1)):
-            rcv_rate = 0.1*(i+1)
-            break
-    if rcv_rate > 0:
-        bpt_key = f'{int(rcv_rate * 100)}%'
-        block_propagation_times[bpt_key] += 1
+    # rcv_rate = -1
+    # for i in range(10):
+    #     if is_closest_to_percentage(rn, mn, 0.1*(i+1)):
+    #         rcv_rate = 0.1*(i+1)
+    #         break
+    # if rcv_rate > 0:
+    #     bpt_key = f'{int(rcv_rate * 100)}%'
+    #     block_propagation_times[bpt_key] += 1
     
-    print(block_propagation_times)
+    # print(block_propagation_times)
+    bw_mean = 4300000
+    bandwidth = np.random.normal(bw_mean,100000)
+    print(bandwidth)
