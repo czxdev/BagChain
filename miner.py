@@ -64,7 +64,7 @@ class Miner(object):
         '''
         flagNotRecBlockBefore=False
         # if self.Blockchain.Search(rcvblock)==None:
-        if rcvblock not in self.Blockchain:
+        if rcvblock not in self.Blockchain and rcvblock not in self.receive_tape:
             self.receive_tape.append(rcvblock)
             # self.receive_history.append(rcvblock)
             # if len(self.receive_history)>=self.buffer_size:
