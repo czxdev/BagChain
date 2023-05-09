@@ -90,7 +90,8 @@ class Environment(object):
         test_set_publish_task = (global_var.get_test_set_interval(),
                                 genesis_block,
                                 (Task.DatasetType.TEST_SET,*dataset_info))
-        validation_set_publish_task = (global_var.get_validation_set_interval(),
+        validation_set_publish_task = (global_var.get_test_set_interval() + \
+                                       global_var.get_validation_set_interval(),
                                         genesis_block,
                                         (Task.DatasetType.VALIDATION_SET,*dataset_info))
         self.schedule.append(test_set_publish_task)
@@ -227,6 +228,10 @@ class Environment(object):
                 self.winning_block_record.setdefault(preblock_height, key_block.name)
                 if self.validation_set_metric[preblock_height] < key_block.blockextra.metric:
                     # 该Key Block验证集性能更好
+                    height_list = [dataset_info[3] for dataset_info in self.dataset_publish_history]
+                    if preblock_height in height_list:
+                        # 如果当前高度的测试集已经发布就不再处理当前高度上的Key Block
+                        continue
                     last_winningblock = key_block
                     self.validation_set_metric[preblock_height] = last_winningblock.blockextra.metric
                     self.winning_block_record[preblock_height] = last_winningblock.name
@@ -251,7 +256,7 @@ class Environment(object):
                 test_set_publish_task = (round + global_var.get_test_set_interval(),
                                         last_winningblock,
                                         (Task.DatasetType.TEST_SET,*dataset_info))
-                validation_set_publish_task = (round + \
+                validation_set_publish_task = (round + global_var.get_test_set_interval() +\
                                               global_var.get_validation_set_interval(),
                                               last_winningblock,
                                               (Task.DatasetType.VALIDATION_SET,*dataset_info))
@@ -268,12 +273,13 @@ class Environment(object):
                         miner.dataset_publication_channel.append((*dataset_info, time.time_ns()))
                     logger.info("%s published prehash:%s taskid:%d height:%d at round %d",
                     dataset_info[0].name, *dataset_info[1:4], round)
+                    self.dataset_publish_history.append(dataset_info)
             self.schedule = new_schedule
 
             # 错误检查，如果超过一定轮数没有新区块或miniblock，可能是系统出现未知错误
-            network_idle_counter += 1 # 没有新的区块或miniblock，闲置轮数+1
-            if network_idle_counter > 500: # 如果调整了区块与miniblock大小，注意修改该阈值
-                logger.error("Blockchain system freeze, no more blocks or miniblocks")
+            network_idle_counter += 1 # 没有新的block，闲置轮数+1
+            if network_idle_counter > 1000: # 如果调整了区块与miniblock大小，注意修改该阈值
+                logger.warning("Blockchain system freeze, no more blocks or miniblocks")
 
             self.network.diffuse(round) 
             self.assess_common_prefix()
@@ -316,6 +322,8 @@ class Environment(object):
         stats = self.global_chain.CalculateStatistics(self.total_round)
         print(stats["num_of_generated_blocks"], "blocks are generated in",
               self.total_round, "rounds, in which", stats["num_of_stale_blocks"], "are stale blocks.")
+        logger.info("%d blocks are generated in %d rounds, in which %d are stale blocks",
+                    stats["num_of_generated_blocks"],self.total_round,stats["num_of_stale_blocks"])
         print("Average chain growth in honest miners' chain:", round(growth, 3))
         print("Number of Forks:", stats["num_of_forks"])
         print("Fork rate:", round(stats["fork_rate"], 3))

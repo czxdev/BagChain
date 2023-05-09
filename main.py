@@ -47,13 +47,13 @@ def global_task_init():
         http.clear()
         mnist_file.close()
     mnist = np.load(dataset_path)
+    test_set_size = len(mnist['y_test'])
     x_train, x_test = mnist['x_train'], mnist['x_test']
     x_train = np.reshape(x_train, (x_train.shape[0],
                                    x_train.shape[1]*x_train.shape[2]))
     x_test = np.reshape(x_test, (x_test.shape[0],
                                  x_test.shape[1]*x_test.shape[2]))
     training_set = (x_train, mnist['y_train'])
-    test_set_size = len(mnist['y_test'])
     test_set = (x_test[0:test_set_size//2], mnist['y_test'][0:test_set_size//2])
     validation_set = (x_test[test_set_size//2:], mnist['y_test'][test_set_size//2:])
 
@@ -83,15 +83,25 @@ def main(
     blocksize = 16,
     miniblock_size = 2,
     result_path = None,
-    max_height = 1000000):
+    max_height = 1000000,
+    blocksize_coefficient = 5):
 
     global_var_init(n, q, blocksize, miniblock_size, result_path)
-    global_var.set_block_metric_requirement(0.85)
+    global_var.set_PoW_target(target)
+    global_var.set_block_metric_requirement(0.86)
     # 根据区块与miniblock大小确定测试/验证集发布间隔
-    global_var.set_test_set_interval(5*blocksize)
-    global_var.set_validation_set_interval(5*(miniblock_size + blocksize))
+    test_set_interval = 100 # 80
+    #global_var.set_test_set_interval(blocksize_coefficient*blocksize)
+    global_var.set_test_set_interval(test_set_interval)
+    #global_var.set_validation_set_interval(5*miniblock_size)
+    global_var.set_validation_set_interval(5*miniblock_size)
     global_var.set_ensemble_block_num(20)
     global_var.set_log_level(logging.INFO)
+    
+    shuffled_dataset_path = global_var.get_dataset_path().parent/"mnist_testset_shuffled.npz"
+    if shuffled_dataset_path.exists():
+        # 如果有测试集打乱过的数据集则使用
+        global_var.set_dataset_path(shuffled_dataset_path)
     global_var.save_configuration()
     global_task_init()
 
@@ -107,4 +117,4 @@ def main(
     return run(Environment(t, q, 'equal', target, network_param, *adversary_ids), total_round, max_height)
 
 if __name__ == "__main__":
-    main(200, 10, blocksize=2)
+    main(60000, 10, blocksize=2,max_height=20)

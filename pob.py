@@ -37,7 +37,8 @@ class PoB(Consensus):
         # 通过evaluation_cache缓存predict的结果，以字符串为键，将测试集验证集上模型的预测结果装入列表作为值
         self.evaluation_cache:dict[str,list[ndarray]] = {}
         self.current_height = 0 # 保存当前高度
-        self.ensemble_block_validation_cache:list[str] = [] # 缓存已经验证过的ensemble_block的哈希
+        self.ensemble_block_validation_cache:list[str] = [] # 缓存已经验证通过的ensemble_block的哈希
+        self.ensemble_block_metric_cache:dict[str,float] = {}
 
     def setparam(self, target):
         '''设置Key Block生成的难度值'''
@@ -198,9 +199,13 @@ class PoB(Consensus):
             if not self.valid_block(ensemble_block) or \
                 blockhash not in block.blockextra.validate_list:
                 return False
-            if validate_list[blockhash] != self.validate_evaluate_miniblock(
+            metric = self.ensemble_block_metric_cache.get(blockhash,None)
+            if metric is None:
+                metric = self.validate_evaluate_miniblock(
                 ensemble_block.blockextra.miniblock_list, current_task,
-                Task.DatasetType.VALIDATION_SET):
+                Task.DatasetType.VALIDATION_SET)
+                self.ensemble_block_metric_cache[blockhash] = metric
+            if metric is None or validate_list[blockhash] != metric:
                 return False
         # 验证metric是否对应性能最好的Ensemble Block
         if max(validate_list.values()) != block.blockextra.metric:
@@ -223,7 +228,7 @@ class PoB(Consensus):
         
         if block.blockhead.blockhash in self.ensemble_block_validation_cache:
             return True
-        self.ensemble_block_validation_cache.append(block.blockhead.blockhash)
+        
         current_task = find_task_by_id(block, block.blockextra.task_id)
         if current_task is None:
             return False
@@ -249,7 +254,8 @@ class PoB(Consensus):
         if test_set_metric < current_task.block_metric_requirement or \
         block.blockextra.metric != test_set_metric:
             return False
-
+        # 确定ensemble block有效之后再将其放入ensemble_block_validation_cache
+        self.ensemble_block_validation_cache.append(block.blockhead.blockhash)
         return True
 
     def valid_miniblock(self, miniblock:Block):
@@ -368,12 +374,19 @@ class PoB(Consensus):
         validate_list={}
         # 逐一评估在验证集上性能
         for ensemble_block in ensemble_block_list:
-            if ensemble_block.blockhead.blockhash in validate_list:
+            blockhash = ensemble_block.blockhead.blockhash
+            if blockhash in validate_list:
                 raise Warning('Duplicate items in ensemble block list')
-            metric = self.validate_evaluate_miniblock(ensemble_block.blockextra.miniblock_list,
-                                             current_task, Task.DatasetType.VALIDATION_SET)
+
+            metric = self.ensemble_block_metric_cache.get(blockhash,None)
+            if metric is None:
+                metric = self.validate_evaluate_miniblock(
+                                            ensemble_block.blockextra.miniblock_list,
+                                            current_task, Task.DatasetType.VALIDATION_SET)
+                self.ensemble_block_metric_cache[blockhash] = metric
+
             if metric is not None:
-                validate_list[ensemble_block.blockhead.blockhash] = metric
+                validate_list[blockhash] = metric
             else:
                 return (None, False)
 

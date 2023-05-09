@@ -241,11 +241,15 @@ class Miner(object):
                     # 或者找到区块高度相同但是性能更好的链，但需要保证任务相同才能比较性能指标
                     depthself = self.Blockchain.lastblock.BlockHeight()
                     depthOtherblock = incoming_data.BlockHeight()
+                    taskid = incoming_data.blockextra.task_id
+                    prehash = incoming_data.blockhead.blockhash
                     if depthself < depthOtherblock or depthself == depthOtherblock \
                         and incoming_data.blockextra.task_id == \
                             self.Blockchain.lastblock.blockextra.task_id \
                         and incoming_data.blockextra.metric > \
-                            self.Blockchain.lastblock.blockextra.metric:
+                            self.Blockchain.lastblock.blockextra.metric \
+                        and not self.dataset_published(prehash, taskid, Task.DatasetType.TEST_SET, depthOtherblock) \
+                        and not self.dataset_published(prehash, taskid, Task.DatasetType.VALIDATION_SET, depthOtherblock):
                         self.Blockchain.lastblock = blocktmp
                         new_update = True
                         # 将当前存储的miniblock/ensemble block放入pending list留存一个区块高度
