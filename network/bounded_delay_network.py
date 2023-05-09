@@ -55,7 +55,7 @@ class BoundedDelayNetwork(Network):
                 if miner.isAdversary and miner.Miner_ID != minerid:
                     adversarylist.append(miner.Miner_ID)
                     adversaryroundlist.append(round)
-                    miner.receiveBlock(newblock)
+                    miner.receive_block(newblock)
 
             block_packet = {
                 'minerid': minerid,
@@ -89,7 +89,7 @@ class BoundedDelayNetwork(Network):
                                     # print(self.IsRecieved(block_packet['recieve_prob']))
                                     block_packet['received_miner'].append(self.miners[j].Miner_ID)
                                     block_packet['received_round'].append(round)
-                                    self.miners[j].receiveBlock(block_packet['block'])
+                                    self.miners[j].receive_block(block_packet['block'])
                                     # print(block_packet['block'].name,block_packet['recieve_prob'],block_packet['received_miner'],file=f)
                                     # 如果接收到了区块，则通过receiveBlock函数传递给该miner
                                     # if not miners[j].receiveBlock(block_packet['block']):#判断最近是否收到过该区块
@@ -99,12 +99,12 @@ class BoundedDelayNetwork(Network):
                                 if self.miners[j].isAdversary:
                                     block_packet['received_miner'].append(self.miners[j].Miner_ID)
                                     block_packet['received_round'].append(round)
-                                    self.miners[j].receiveBlock(block_packet['block'])
+                                    self.miners[j].receive_block(block_packet['block'])
                                     for miner in self.miners:
                                         if miner.isAdversary and miner.Miner_ID != j:
                                             block_packet['received_miner'].append(miner.Miner_ID)
                                             block_packet['received_round'].append(round)
-                                            miner.receiveBlock(block_packet['block'])
+                                            miner.receive_block(block_packet['block'])
 
                     if block_packet['recieve_prob'] < 1:
                         block_packet['recieve_prob'] = block_packet['recieve_prob'] + self.rcvprob_inc  # 每轮

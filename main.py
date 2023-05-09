@@ -43,7 +43,7 @@ if environ_settings['network_type'] == 'network.TopologyNetwork':
                      'ave_degree': config.getfloat('TopologyNetworkSettings', 'ave_degree'),
                      'show_label': config.getboolean('TopologyNetworkSettings', 'show_label')}
 elif environ_settings['network_type'] == 'network.BoundedDelayNetwork':
-    network_param = {k:float(v) for k,v in dict(config['BoundedDelayNetworkSettings'])}
+    network_param = {k:float(v) for k,v in dict(config['BoundedDelayNetworkSettings']).items()}
 
 # 生成环境
 t = int(environ_settings['t'])

@@ -191,7 +191,7 @@ class Environment(object):
         self.global_chain.ShowStructure1()
         print("End of Global Tree", "")
         # self.miners[9].ValiChain()
-
+        stats = self.global_chain.CalculateStatistics(self.total_round)
         # Chain Growth Property
         print('Chain Growth Property:')
         growth = 0
@@ -201,19 +201,38 @@ class Environment(object):
                 growth = growth + chain_growth(self.miners[i].Blockchain)
                 num_honest = num_honest + 1
         growth = growth / num_honest
-        stats = self.global_chain.CalculateStatistics(self.total_round)
+        
+
+        # Common Prefix Property
+        stats.update({
+            'common_prefix_pdf': self.cp_pdf,
+            'consistency_rate':self.cp_pdf[0,0]/(self.cp_pdf.sum())
+        })
+        # Chain Quality Property
+        cq_dict, chain_quality_property = chain_quality(self.miners[9].Blockchain)
+        stats.update({
+            'chain_quality_property': cq_dict,
+            'ratio_of_blocks_contributed_by_malicious_players': round(chain_quality_property, 3),
+            'upper_bound t/(n-t)': round(self.max_adversary / (self.miner_num - self.max_adversary), 3)
+        })
+
+        for k,v in stats.items():
+            if type(v) is float:
+                stats.update({k:round(v,3)})
+
+        
         print(stats["num_of_generated_blocks"], "blocks are generated in",
               self.total_round, "rounds, in which", stats["num_of_stale_blocks"], "are stale blocks.")
         print("Average chain growth in honest miners' chain:", round(growth, 3))
         print("Number of Forks:", stats["num_of_forks"])
-        print("Fork rate:", round(stats["fork_rate"], 3))
-        print("Stale rate:", round(stats["stale_rate"], 3))
-        print("Average block time (main chain):", round(stats["average_block_time_main"]), "rounds/block")
-        print("Block throughput (main chain):", round(stats["block_throughput_main"],3), "blocks/round")
-        print("Throughput in MB (main chain):", round(stats["throughput_main_MB"], 3), "blocks/round")
-        print("Average block time (total):", round(stats["average_block_time_total"]), "rounds/block")
-        print("Block throughput (total):", round(stats["block_throughput_total"], 3), "blocks/round")
-        print("Throughput in MB (total):", round(stats["throughput_total_MB"], 3), "MB/round")
+        print("Fork rate:", stats["fork_rate"])
+        print("Stale rate:", stats["stale_rate"])
+        print("Average block time (main chain):", stats["average_block_time_main"], "rounds/block")
+        print("Block throughput (main chain):", stats["block_throughput_main"], "blocks/round")
+        print("Throughput in MB (main chain):", stats["throughput_main_MB"], "blocks/round")
+        print("Average block time (total):", stats["average_block_time_total"], "rounds/block")
+        print("Block throughput (total):", stats["block_throughput_total"], "blocks/round")
+        print("Throughput in MB (total):", stats["throughput_total_MB"], "MB/round")
         print("")
 
         # Common Prefix Property
@@ -224,7 +243,6 @@ class Environment(object):
         print("")
 
         # Chain Quality Property
-        cq_dict, chain_quality_property = chain_quality(self.miners[9].Blockchain)
         print('Chain_Quality Property:', cq_dict)
         print('Ratio of blocks contributed by malicious players:', round(chain_quality_property, 3))
         print('Upper Bound t/(n-t):', round(self.max_adversary / (self.miner_num - self.max_adversary), 3))
@@ -236,11 +254,13 @@ class Environment(object):
 
         self.global_chain.ShowStructureWithGraphviz()
 
-        ave_block_propagation_times = self.network.cal_block_propagation_times()
-        print('Block propagation times:', ave_block_propagation_times)
+        # ave_block_propagation_times = self.network.cal_block_propagation_times()
+        # print('Block propagation times:', ave_block_propagation_times)
 
 
         if self.network.__class__.__name__=='TopologyNetwork':
+            ave_block_propagation_times = self.network.cal_block_propagation_times()
+            print('Block propagation times:', ave_block_propagation_times)
             self.network.gen_routing_gragh_from_json()
         # print_chain_property2txt(self.miners[9].Blockchain)
 
