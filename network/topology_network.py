@@ -62,9 +62,10 @@ class TopologyNetwork(Network):
         self.show_label = None
         self.gen_net_approach = None
         self.save_routing_graph = None
-        # self.edge_prob = None
         self.ave_degree = None
-        self.TTL = None
+        self.bandwidth_honest = 0.5 # default 0.5 MB
+        self.bandwidth_adv = 5 # default 5 MB
+        self.TTL = 1000
         # 拓扑图，初始默认全不连接
         self.tp_adjacency_matrix = np.zeros((self.MINER_NUM, self.MINER_NUM))
         self.network_graph = nx.Graph(self.tp_adjacency_matrix)
@@ -94,15 +95,28 @@ class TopologyNetwork(Network):
             f.write(']')
 
 
-    def set_net_param(self, gen_net_approach = None, TTL = None, 
-                      save_routing_graph = None, ave_degree = None, show_label = None):
-        '''设置网络参数
-        param:  gen_approach(str): 生成网络的方式, 'adj'邻接矩阵, 'coo'coo格式的稀疏矩阵, 'rand'随机生成
-                TTL(int): 区块的最大生存周期, 为了防止孤立节点的存在, 或adversary日蚀攻击,
-                    导致该块一直在网络中(所有节点都收到块才判定该块传播结束)    
+    def set_net_param(self, gen_net_approach = None, TTL = None, ave_degree = None, 
+                        bandwidth_honest = None, bandwidth_adv = None,
+                        save_routing_graph = None, show_label = None):
+        ''' 
+        set the network parameters
+
+        param
+        -----  
+        gen_net_approach (str): 生成网络的方式, 'adj'邻接矩阵, 'coo'稀疏矩阵, 'rand'随机
+        TTL (int): 区块的最大生存周期, 为了防止因孤立节点或日蚀攻击,导致该块一直在网络中
+        ave_degree (int): ; If 'rand', set the average degree
+        bandwidth_honest(float): bandwidth between honest miners and between the honest and adversaries(MB/round)
+        bandwidth_adv (float): bandwidth between adversaries(MB/round)
+        save_routing_graph (bool): Genarate routing graph at the end of simulation or not.
+        show_label (bool): Show edge labels on network and routing graph or not. 
         '''
         if show_label is not None:
             self.show_label = show_label
+        if bandwidth_honest is not None: # default 0.5 MB/round
+            self.bandwidth_honest = bandwidth_honest 
+        if bandwidth_adv is not None: # default 5 MB/round
+            self.bandwidth_adv = bandwidth_adv 
         if gen_net_approach is not None:
             if  gen_net_approach == 'rand' and ave_degree is not None:
                 self.gen_net_approach = gen_net_approach
@@ -255,12 +269,12 @@ class TopologyNetwork(Network):
         bp.routing_histroy[(from_miner, cur_miner)][1] = round
 
 
-    def cal_delay(self, block, sourceid, targetid):
+    def cal_delay(self, block:Block, sourceid, targetid):
         '''计算sourceid和targetid之间的时延'''
         # 传输时延=块大小除带宽 且传输时延至少1轮
         bw_mean = self.network_graph.edges[sourceid, targetid]['bandwidth']
         bandwidth = np.random.normal(bw_mean,0.2*bw_mean)
-        transmision_delay = ceil(block.blocksize_byte * 8 / bandwidth)
+        transmision_delay = ceil(block.blocksize_MB / bandwidth)
         # 时延=处理时延+传输时延
         delay = self.miners[sourceid].processing_delay + transmision_delay
         return delay
@@ -314,7 +328,7 @@ class TopologyNetwork(Network):
         network_attributes={
             'miner_num':self.MINER_NUM,
             'Generate Approach':self.gen_net_approach,
-            'Generate Edge Probability':self.ave_degree/self.MINER_NUM,
+            'Generate Edge Probability':self.ave_degree/self.MINER_NUM if self.gen_net_approach == 'rand' else None,
             'Diameter':nx.diameter(self.network_graph),
             'Average Shortest Path Length':round(nx.average_shortest_path_length(self.network_graph), 3),
             'Degree Histogram': nx.degree_histogram(self.network_graph),
@@ -336,20 +350,23 @@ class TopologyNetwork(Network):
         """采用Erdős-Rényi算法生成随机图"""
         edge_prop = ave_degree/self.MINER_NUM
         self.network_graph = nx. gnp_random_graph(self.MINER_NUM, edge_prop)
+        # 防止出现孤立节点
         if nx.number_of_isolates(self.network_graph) > 0:
             iso_nodes = list(nx.isolates(self.network_graph))
             not_iso_nodes = [nd for nd in list(self.network_graph.nodes) if nd not in iso_nodes]
             targets = np.random.choice(not_iso_nodes, len(iso_nodes))
             for m1, m2 in zip(iso_nodes, targets):
                 self.network_graph.add_edge(m1, m2)
-
-        #将攻击者集团的各个矿工相连
+        # 将攻击者集团的各个矿工相连
         for m1,m2 in itertools.combinations(range(self.MINER_NUM), 2):
             if self.miners[m1].isAdversary and self.miners[m2].isAdversary:
                 if not self.network_graph.has_edge(m1, m2):
                     self.network_graph.add_edge(m1, m2)
-        bandwidths = {(u,v):(4200000*10 if self.miners[u].isAdversary
-                      and self.miners[v].isAdversary else 4200000)
+        # 设置带宽（MB/round）
+        bw_honest = self.bandwidth_honest
+        bw_adv = self.bandwidth_adv
+        bandwidths = {(u,v):(bw_adv if self.miners[u].isAdversary
+                      and self.miners[v].isAdversary else bw_honest)
                       for u,v in self.network_graph.edges}
         nx.set_edge_attributes(self.network_graph, bandwidths, "bandwidth")
         self.tp_adjacency_matrix = nx.adjacency_matrix(self.network_graph).todense()
@@ -357,19 +374,28 @@ class TopologyNetwork(Network):
 
     def gen_network_adj(self):
         """
-        如果读取邻接矩阵,则固定节点间的带宽为4200000bit/round即0.5MB/round
+        如果读取邻接矩阵,则固定节点间的带宽0.5MB/round
         bandwidth单位:bit/round
         """
         # 读取csv文件的邻接矩阵
         self.read_adj_from_csv_undirected()
         # 根据邻接矩阵生成无向图
         self.network_graph = nx.Graph()
+        # 生成节点
         self.network_graph.add_nodes_from([i for i in range(self.MINER_NUM)])
-        for source_node in range(len(self.tp_adjacency_matrix)):  # 生成边
-            for target_node in range(source_node, len(self.tp_adjacency_matrix)):
-                if self.tp_adjacency_matrix[source_node, target_node] == 1:
-                    self.network_graph.add_edge(source_node, target_node, bandwidth=4200000)
-                    # 固定带宽为4200000bit/round,即1轮最多传输0.5MB=1048576*8*0.5=4194304 bit
+        # 生成边
+        for m1 in range(len(self.tp_adjacency_matrix)): 
+            for m2 in range(m1, len(self.tp_adjacency_matrix)):
+                if self.tp_adjacency_matrix[m1, m2] == 1:
+                    self.network_graph.add_edge(m1, m2)
+        # 设置带宽（MB/round）
+        bw_honest = self.bandwidth_honest
+        bw_adv = self.bandwidth_adv
+        bandwidths = {(u,v):(bw_adv if self.miners[u].isAdversary
+                      and self.miners[v].isAdversary else bw_honest)
+                      for u,v in self.network_graph.edges}
+        nx.set_edge_attributes(self.network_graph, bandwidths, "bandwidth")
+                    
 
 
     def gen_network_coo(self):
@@ -381,7 +407,7 @@ class TopologyNetwork(Network):
         tp_coo_ndarray = tp_coo_dataframe.values
         row = np.array([int(i) for i in tp_coo_ndarray[0]])
         col = np.array([int(i) for i in tp_coo_ndarray[1]])
-        bw_arrary = np.array([int(eval(str(i))) for i in tp_coo_ndarray[2]])
+        bw_arrary = np.array([float(eval(str(i))) for i in tp_coo_ndarray[2]])
         tp_bw_coo = sp.coo_matrix((bw_arrary, (row, col)), shape=(10, 10))
         adj_values = np.array([1 for _ in range(len(bw_arrary) * 2)])
         self.tp_adjacency_matrix = sp.coo_matrix((adj_values, (np.hstack([row, col]), np.hstack([col, row]))),
@@ -439,7 +465,7 @@ class TopologyNetwork(Network):
         # plt.figure(figsize=(12,10))
         node_size = 200*3/self.MINER_NUM**0.5
         font_size = 30/self.MINER_NUM**0.5
-        line_width = 5/self.MINER_NUM**0.5
+        line_width = 3/self.MINER_NUM**0.5
         #nx.draw(self.network_graph, self.draw_pos, with_labels=True,node_size=node_size,font_size=30/(self.MINER_NUM)^0.5,width=3/self.MINER_NUM)
         node_colors = ["red" if self.miners[n].isAdversary else '#1f78b4'  
                             for n,d in self.network_graph.nodes(data=True)]
@@ -502,8 +528,9 @@ class TopologyNetwork(Network):
                                     rh = v
                                     rh = {tuple(eval(ki)): rh[ki] for ki, _ in rh.items()}
                             self.gen_routing_gragh(blockname, rh, origin_miner)
+                            print(f'\rgenerate routing gragh of {blockname} successfully', end="", flush=True)
             print('Routing gragh finished')
-
+            
 
     def gen_routing_gragh(self, blockname, routing_histroy_single_block, origin_miner):
         """
@@ -539,7 +566,7 @@ class TopologyNetwork(Network):
                           (u, v)not in edges_not_complete_single and (u, v) not in edges_not_complete_double 
                           and (v, u) not in edges_not_complete_double]]
         # 画边
-        width=5/self.MINER_NUM**0.5
+        width=3/self.MINER_NUM**0.5
         nx.draw_networkx_edges(trans_process_graph, self.node_pos, edgelist=edges_complete, edge_color='black', 
                                width=width,alpha=1,node_size=node_size,arrowsize=30/self.MINER_NUM**0.5)
         nx.draw_networkx_edges(trans_process_graph, self.node_pos, edgelist=edges_not_complete_single, edge_color='black',

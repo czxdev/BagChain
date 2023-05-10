@@ -134,7 +134,7 @@ def printchain2txt(miner,chain_data_url='chain_data.txt'):
             "Miner:",block.blockhead.miner,'\n'
             "timestamp:",block.blockhead.timestamp,'\n'
             "content:",block.content,'\n',
-            "blocksize",block.blocksize_byte,'byte','\n',file=f)
+            "blocksize",block.blocksize_MB,'byte','\n',file=f)
             if not block.blockextra:
                 for k,v in block.blockextra:
                     print(f'{k}:',v,'\n',file=f)

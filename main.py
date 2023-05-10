@@ -41,7 +41,10 @@ if environ_settings['network_type'] == 'network.TopologyNetwork':
                      'gen_net_approach': config.get('TopologyNetworkSettings', 'gen_net_approach'),
                      'save_routing_graph': config.getboolean('TopologyNetworkSettings', 'save_routing_graph'),
                      'ave_degree': config.getfloat('TopologyNetworkSettings', 'ave_degree'),
-                     'show_label': config.getboolean('TopologyNetworkSettings', 'show_label')}
+                     'show_label': config.getboolean('TopologyNetworkSettings', 'show_label'),
+                     'bandwidth_honest': config.getfloat('TopologyNetworkSettings', 'bandwidth_honest'),
+                     'bandwidth_adv': config.getfloat('TopologyNetworkSettings', 'bandwidth_adv')
+                     }
 elif environ_settings['network_type'] == 'network.BoundedDelayNetwork':
     network_param = {k:float(v) for k,v in dict(config['BoundedDelayNetworkSettings']).items()}
 

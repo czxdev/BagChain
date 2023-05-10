@@ -54,9 +54,9 @@ class Block(object):
         self.last = None  # 母块
         self.blockextra = {}  # 其他共识协议需要用的，使用字典添加
         self.isGenesis = isgenesis
-        self.blocksize_byte = blocksize_MB * 1048576
-        # self.blocksize_byte = int(random.uniform(0.5, 2) * 1048576)  
-        # 单位:byte 随机 0.5~1 MB
+        self.blocksize_MB = blocksize_MB
+        # self.blocksize_byte = int(random.uniform(0.5, 2))  
+        # 单位:MB 随机 0.5~1 MB
         
     def __deepcopy__(self, memo):
         cls = self.__class__
