@@ -1,119 +1,196 @@
 import random
-
+import logging
+from typing import List
+from miner import Miner
+from chain import Block
 from .network_abc import Network
+
+logger = logging.getLogger(__name__)
+
+class BlockPacketBDNet(object):
+    '''BoundedDelay网络中的区块数据包，包含路由相关信息'''
+    def __init__(self, newblock: Block, minerid: int, round: int, rcvprob_start, outnetobj):
+        self.block = newblock
+        self.minerid = minerid
+        self.round = round
+        self.outnetobj = outnetobj  # 外部网络类实例
+        # 传播过程相关
+        self.received_miners = [minerid]
+        # self.received_rounds = [round]
+        self.trans_process_dict = {
+            f'miner {minerid}': round
+        }
+        # 每次加self.rcvprob_inc
+        self.recieve_prob = rcvprob_start
+
+    def update_trans_process(self, minerid, round):
+        # if a miner received the block update the trans_process
+        self.received_miners.append(minerid)
+        # self.received_rounds = [round]
+        self.trans_process_dict.update({
+            f'miner {minerid}': round
+        })
 
 class BoundedDelayNetwork(Network):
     """矿工以概率接收到区块，在特定轮数前必定所有矿工都收到区块"""
 
-    def __init__(self, miners: list):
+    def __init__(self, miners: List[Miner]):
         super().__init__()
-        self.miners = miners
-        self.network_tape = []
+        self.miners:List[Miner] = miners
+        self.adv_miners:List[Miner] = [m for m in miners if m.isAdversary]
+        self.network_tape:List[BlockPacketBDNet] = []
         self.rcvprob_start = 0.25
         self.rcvprob_inc = 0.25
-        # 结果打印准备
-        with open(self.NET_RESULT_PATH / 'network_log.txt', 'a') as f:
-            print('Network Type: BoundedDelayNetwork', file=f)
-
+        # status
+        self.ave_block_propagation_times = {
+            '5%': 0,
+            '10%': 0,
+            '20%': 0,
+            '30%': 0,
+            '40%': 0,
+            '50%': 0,
+            '60%': 0,
+            '70%': 0,
+            '80%': 0,
+            '90%': 0,
+            '95%': 0,
+            '97%': 0,
+            '99%': 0,
+            '100%': 0
+        }
+        self.target_percents = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.97, 0.99, 1]
+        self.block_num_bpt = [0 for _ in range(len(self.target_percents))]
 
     def set_net_param(self, rcvprob_start, rcvprob_inc):
-        """设置网络参数\n
-        param:  rcvprob_start:每个包进入网络时的接收概率,默认0.25
-                rcvprob_inc:之后每轮增加的接收概率,默认0.25"""
+        """
+        set the network parameters
+
+        param
+        ----- 
+        rcvprob_start: 每个包进入网络时的接收概率,默认0.25
+        rcvprob_inc: 之后每轮增加的接收概率,默认0.25
+        """
         self.rcvprob_start = rcvprob_start
         self.rcvprob_inc = rcvprob_inc
-        with open(self.NET_RESULT_PATH / 'network_log.txt', 'a') as f:
-            print('rcvprob_start:{},rcvprob_inc={}'.format(self.rcvprob_start, self.rcvprob_inc), file=f)
+        with open(self.NET_RESULT_PATH / 'network_attributes.txt', 'a') as f:
+            print('Network Type: BoundedDelayNetwork', file=f)
+            print(f'rcvprob_start:{self.rcvprob_start},rcvprob_inc={self.rcvprob_inc}', file=f)
 
 
-    def IsRecieved(self, rcvprob_th):
-        """节点收到区块的概率
-        param:rcvprob_th 接收到概率;
+    def is_recieved(self, rcvprob_th):
+        """
+        以均匀分布判断本轮是否接收
+
+        param
+        -----
+        rcvprob_th: 接收的概率;
         """
         return random.uniform(0, 1) < rcvprob_th
 
-    def access_network(self, newblock, minerid, round):
-        """新块及信息打包添加到network_tape\n
-        param: newblock type:block
-               minerid type:int
+    def access_network(self, newblock:Block, minerid:int, round:int):
+        """
+        Package the newblock and related information to network_tape.
+
+        param
+        -----
+        newblock (Block) : The newly mined block 
+        minerid (int) : Miner who generate the block. 
+        rounf (int) : Current round. 
 
         """
         if not self.miners[minerid].isAdversary:
-            block_packet = {
-                'minerid': minerid,
-                'block': newblock,
-                'received_miner': [minerid],  # 记录接收到该区块的矿工节点
-                'received_round': [round],
-                'recieve_prob': self.rcvprob_start  # 每次加self.rcvprob_inc
-            }
+            block_packet = BlockPacketBDNet(newblock, minerid, round, 
+                                        self.rcvprob_start, self)
             self.network_tape.append(block_packet)
-
+    
+        # 如果是攻击者发出的，攻击者集团的所有成员都在下一轮收到
         if self.miners[minerid].isAdversary:
-            adversarylist = [minerid]
-            adversaryroundlist = [round]
-            for miner in self.miners:
-                if miner.isAdversary and miner.Miner_ID != minerid:
-                    adversarylist.append(miner.Miner_ID)
-                    adversaryroundlist.append(round)
-                    miner.receive_block(newblock)
-
-            block_packet = {
-                'minerid': minerid,
-                'block': newblock,
-                'received_miner': adversarylist,  # 记录接收到该区块的矿工节点
-                'received_round': adversaryroundlist,
-                'recieve_prob': self.rcvprob_start  # 每次加self.rcvprob_inc
-            }
+            block_packet = BlockPacketBDNet(newblock, minerid, round, 
+                                        self.rcvprob_start, self)
+            for miner in [m for m in self.adv_miners if m.Miner_ID != minerid]:
+                block_packet.update_trans_process(miner.Miner_ID, round)
+                miner.receive_block(newblock)
             self.network_tape.append(block_packet)
 
 
     def diffuse(self, round):
-        """ReceiveProb广播"""
+        """Diffuse algorism for boundeddelay network"""
         # recieve_prob=0.7#设置接收概率，目前所有矿工概率一致
-
         # 随着轮数的增加，收到的概率越高，无限轮
         # 超过某轮后所有人收到
-
         # 一个人收到之后就不会再次收到这个块了
+        if len(self.network_tape) > 0:
+            died_packets = []
+            for i, bp in enumerate(self.network_tape):
+                not_rcv_miners = [m for m in self.miners \
+                                if m.Miner_ID not in bp.received_miners]
+                # 不会重复传给某个矿工
+                for miner in not_rcv_miners:
+                    if self.is_recieved(bp.recieve_prob):
+                        bp.update_trans_process(miner.Miner_ID, round)
+                        miner.receive_block(bp.block)
+                        self.record_block_propagation_time(bp, round)
+                        # 如果一个adv收到，其他adv也立即收到
+                        if miner.isAdversary:
+                            not_rcv_adv_miners = [m for m in self.adv_miners \
+                                                if m.Miner_ID != miner.Miner_ID]
+                            for adv_miner in not_rcv_adv_miners:
+                                bp.update_trans_process(miner.Miner_ID, round)
+                                adv_miner.receive_block(bp.block)
+                                self.record_block_propagation_time(bp, round)
+                # 更新recieve_prob
+                if bp.recieve_prob < 1:
+                    bp.recieve_prob += self.rcvprob_inc
+                # 如果所有人都收到了，就丢弃该包
+                if len(set(bp.received_miners)) == self.MINER_NUM:  
+                    died_packets.append(i)
+                    self.save_trans_process(bp)
+            # 丢弃传播完成的包，更新network_tape
+            self.network_tape = [n for i, n in enumerate(self.network_tape) \
+                                    if i not in died_packets]
+            died_packets = []
 
+
+
+    def record_block_propagation_time(self, block_packet: BlockPacketBDNet, r):
+        '''calculate the block propagation time'''
+        bp = block_packet
+        rn = len(set(bp.received_miners))
+        mn = self.MINER_NUM
+
+        def is_closest_to_percentage(a, b, percentage):
+            return a == round(b * percentage)
+
+        rcv_rate = -1
+        for p in self.target_percents:
+            if is_closest_to_percentage(rn, mn, p):
+                rcv_rate = p
+                break
+        if rcv_rate != -1 and rcv_rate in self.target_percents:
+            logger.info(f"{bp.block.name}:{rn},{rcv_rate} at round {r}")
+            bpt_key = f'{int(rcv_rate * 100)}%'
+            self.ave_block_propagation_times[bpt_key] += r-bp.round
+
+            self.block_num_bpt[self.target_percents.index(rcv_rate)] += 1
+
+    def cal_block_propagation_times(self):
+        for i , p in enumerate(self.target_percents):
+            bpt_key = f'{int(p * 100)}%'
+            total_bpt = self.ave_block_propagation_times[bpt_key]
+            total_num = self.block_num_bpt[i]
+            if total_num == 0:
+                continue
+            self.ave_block_propagation_times[bpt_key] = round(total_bpt/total_num, 3)
+        return self.ave_block_propagation_times
+        
+
+    def save_trans_process(self, block_packet: BlockPacketBDNet):
+        '''
+        Save the transmission process of a specific block to network_log.txt
+        '''
+        bp = block_packet
         with open(self.NET_RESULT_PATH / 'network_log.txt', 'a') as f:
-
-            if self.network_tape:
-                died_packets = []  # TTL=0的包的索引
-                for i, block_packet in enumerate(self.network_tape):
-                    for j in range(self.MINER_NUM):
-                        if j != block_packet['minerid'] and j not in block_packet['received_miner']:
-                            # 不会重复传给某个矿工
-                            if self.IsRecieved(block_packet['recieve_prob']):
-                                if not self.miners[j].isAdversary:
-                                    # print(self.IsRecieved(block_packet['recieve_prob']))
-                                    block_packet['received_miner'].append(self.miners[j].Miner_ID)
-                                    block_packet['received_round'].append(round)
-                                    self.miners[j].receive_block(block_packet['block'])
-                                    # print(block_packet['block'].name,block_packet['recieve_prob'],block_packet['received_miner'],file=f)
-                                    # 如果接收到了区块，则通过receiveBlock函数传递给该miner
-                                    # if not miners[j].receiveBlock(block_packet['block']):#判断最近是否收到过该区块
-
-                                # 判断如果是isAdversary:
-                                # 如果一个ad收到，其他ad也立即收到
-                                if self.miners[j].isAdversary:
-                                    block_packet['received_miner'].append(self.miners[j].Miner_ID)
-                                    block_packet['received_round'].append(round)
-                                    self.miners[j].receive_block(block_packet['block'])
-                                    for miner in self.miners:
-                                        if miner.isAdversary and miner.Miner_ID != j:
-                                            block_packet['received_miner'].append(miner.Miner_ID)
-                                            block_packet['received_round'].append(round)
-                                            miner.receive_block(block_packet['block'])
-
-                    if block_packet['recieve_prob'] < 1:
-                        block_packet['recieve_prob'] = block_packet['recieve_prob'] + self.rcvprob_inc  # 每轮
-                    # block_packet['TTL']=block_packet['TTL']-1#TTL-1
-                    if len(set(block_packet['received_miner'])) == self.MINER_NUM:  # 如果所有人都收到了，就丢弃该包
-                        died_packets.append(i)
-                        # 打印将要被丢弃的包的信息
-                        print(block_packet['block'].name, 'is recieved by miners:', block_packet['received_miner'],
-                              'in rounds:', block_packet['received_round'], file=f)
-                # 丢弃TTL=0的包，更新network_tape
-                self.network_tape = [n for i, n in enumerate(self.network_tape) if i not in died_packets]
-                died_packets = []
+            result_str = f'{bp.block.name}:'+'\n'+'recieved miner in round'
+            print(result_str, file=f)
+            for miner_str,round in bp.trans_process_dict.items():
+                print(' '*4, miner_str.ljust(10), ': ', round, file=f)

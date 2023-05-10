@@ -215,7 +215,7 @@ class TopologyNetwork(Network):
                 rcv_rate = p
                 break
         if rcv_rate != -1 and rcv_rate in self.target_percents:
-            logger.info(f"{bp.block.name}:{rn},{rcv_rate} at round {r}")
+            logger.info(f"{bp.block.name}:{rcv_rate} of all miners received at round {r}")
             bpt_key = f'{int(rcv_rate * 100)}%'
             self.ave_block_propagation_times[bpt_key] += r-bp.round
 

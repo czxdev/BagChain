@@ -510,9 +510,7 @@ class Chain(object):
         stats["throughput_total_MB"] = blocksize * stats["block_throughput_total"]
         stats["fork_rate"] = stats["num_of_forks"] / stats["num_of_generated_blocks"]
         stats["stale_rate"] = stats["num_of_stale_blocks"] / stats["num_of_generated_blocks"]
-        for k,v in stats.items():
-            if type(v) is float:
-                stats.update({k:round(v,3)})
+
         return stats
     
 if __name__ == "__main__":
