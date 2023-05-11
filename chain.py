@@ -295,8 +295,8 @@ class Chain(object):
                 blocktmp.next = []
                 local_tmp.next.append(blocktmp)
                 local_tmp = blocktmp
-            #if lastblock.BlockHeight() > self.lastblock.BlockHeight():
-            #    self.lastblock = lastblock  # 更新global chain的lastblock
+            if local_tmp.BlockHeight() > self.lastblock.BlockHeight():
+                self.lastblock = local_tmp  # 更新global chain的lastblock
         return local_tmp  # 返回深拷贝的最后一个区块的指针，如果没拷贝返回None
 
     '''
@@ -503,9 +503,13 @@ class Chain(object):
             if blocktmp.blockhead.height > stats["num_of_valid_blocks"]:
                 stats["num_of_valid_blocks"] = blocktmp.blockhead.height
             nextlist = blocktmp.next
-            if len(nextlist) > 1:
-                stats["num_of_forks"] = stats["num_of_forks"] + len(nextlist) - 1
             q.extend(nextlist)
+
+        last_block = self.lastblock.last
+        while last_block:
+            stats["num_of_forks"] += len(last_block.next) - 1
+            last_block = last_block.last
+
         stats["num_of_stale_blocks"] = stats["num_of_generated_blocks"] - stats["num_of_valid_blocks"]
         stats["average_block_time_main"] = rounds / stats["num_of_valid_blocks"]
         stats["block_throughput_main"] = 1 / stats["average_block_time_main"]
