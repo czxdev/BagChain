@@ -278,7 +278,7 @@ class Environment(object):
         # show or save figures
         self.global_chain.ShowStructure(self.miner_num)
         # block interval distribution
-        # self.miners[0].Blockchain.Get_block_interval_distribution()
+        self.miners[0].Blockchain.get_block_interval_distribution()
 
         self.global_chain.ShowStructureWithGraphviz()
 

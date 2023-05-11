@@ -295,6 +295,8 @@ class Chain(object):
                 blocktmp.next = []
                 local_tmp.next.append(blocktmp)
                 local_tmp = blocktmp
+            #if lastblock.BlockHeight() > self.lastblock.BlockHeight():
+            #    self.lastblock = lastblock  # 更新global chain的lastblock
         return local_tmp  # 返回深拷贝的最后一个区块的指针，如果没拷贝返回None
 
     '''
@@ -442,7 +444,7 @@ class Chain(object):
                 if blocktmp.isAdversaryBlock:
                     dot.node(blocktmp.name, shape='rect', color='red')
                 else:
-                    dot.node(blocktmp.name,shape='rect',color='yellow')
+                    dot.node(blocktmp.name,shape='rect',color='blue')
                 # 建立区块连接
                 dot.edge(blocktmp.last.name, blocktmp.name)
             else:
@@ -467,11 +469,15 @@ class Chain(object):
             blocktmp1 = blocktmp2.last
             stat.append(blocktmp2.content - blocktmp1.content)
             blocktmp2 = blocktmp1
-        plt.hist(stat, bins=20, range=(0, max(stat)))
+        plt.hist(stat, bins=10, histtype='bar', range=(0, max(stat)))
         plt.xlabel('Rounds')
         plt.ylabel('Times')
         plt.title('Block generation interval distribution')
-        plt.show()
+        RESULT_PATH = global_var.get_result_path()
+        plt.savefig(RESULT_PATH / 'block interval distribution.svg')
+        if global_var.get_show_fig():
+            plt.show()
+        plt.close()
 
 
     def CalculateStatistics(self, rounds):
