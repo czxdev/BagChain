@@ -104,7 +104,7 @@ class Miner(object):
             already in local chain or in miniblock_storage. 
             If not, return True; else False.
         '''
-        if not self.is_in_local_chain(rcvblock):
+        if not self.is_in_local_chain(rcvblock) and rcvblock not in self.receive_tape:
             self.receive_tape.append(rcvblock)
             return True
         return False

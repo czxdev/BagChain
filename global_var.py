@@ -17,6 +17,8 @@ def __init__(result_path = None):
     RESULT_PATH.mkdir(parents=True)   
     NET_RESULT_PATH=RESULT_PATH / 'Network Results'
     NET_RESULT_PATH.mkdir()
+    CHAIN_DATA_PATH=RESULT_PATH / 'Chain Data'
+    CHAIN_DATA_PATH.mkdir()
     global _var_dict
     _var_dict = {}
     # 区块链基本参数
@@ -27,6 +29,7 @@ def __init__(result_path = None):
     _var_dict['NETWORK_TYPE']='network.FullConnectedNetwork'
     _var_dict['RESULT_PATH'] = RESULT_PATH
     _var_dict['NET_RESULT_PATH'] = NET_RESULT_PATH
+    _var_dict['CHAIN_DATA_PATH'] = CHAIN_DATA_PATH
     _var_dict['Attack'] = False
     _var_dict['Blocksize'] = 2
     _var_dict['MINIBLOCK_SIZE'] = 2
@@ -198,6 +201,9 @@ def get_result_path():
 
 def get_net_result_path():
     return _var_dict['NET_RESULT_PATH']
+
+def get_chain_data_path():
+    return _var_dict['CHAIN_DATA_PATH']
 
 def set_network_type(network_type):
     '''定义网络类型 type:str'''

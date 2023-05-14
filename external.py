@@ -100,15 +100,15 @@ def printchain2txt(miner,chain_data_url='chain_data.txt'):
         chain_data_url:打印文件位置,默认'chain_data.txt'
     '''
     #chain_data_url='chain_data.txt'
-    RESULT_PATH=global_var.get_result_path()
+    CHAIN_DATA_PATH=global_var.get_chain_data_path()
     if not miner.Blockchain.head:
-        with open(RESULT_PATH / chain_data_url,'w+') as f:
+        with open(CHAIN_DATA_PATH / chain_data_url,'w+') as f:
             print("empty chain",file=f)
         return
 
     
-    with open(RESULT_PATH / chain_data_url,'w+') as f:
-        print("Blockchian maintained BY Miner",miner.Miner_ID,file=f)
+    with open(CHAIN_DATA_PATH /chain_data_url,'w+') as f:
+        print("Blockchian maintained BY Miner",miner.Miner_ID,file=f)    
 
         # 打印主链
         blocklist = miner.Blockchain.InversShowBlock()
@@ -134,7 +134,7 @@ def printchain2txt(miner,chain_data_url='chain_data.txt'):
             "Miner:",block.blockhead.miner,'\n'
             "timestamp:",block.blockhead.timestamp,'\n'
             "content:",block.content,'\n',
-            "blocksize",block.blocksize_byte,'byte','\n'
+            "blocksize",block.blocksize_MB,'byte','\n'
             "metric:",block.blockextra.metric,'\n','\n',file=f)
             for i in block.next:
                 q.append(i)

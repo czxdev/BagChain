@@ -106,7 +106,7 @@ class Block(object):
         self.last:Block = None  # 母块
         self.blockextra = blockextra or Block.BlockExtra() # 其他共识协议需要的额外信息
         self.isGenesis = isgenesis
-        self.blocksize_byte = blocksize_MB * 1048576
+        self.blocksize_MB = blocksize_MB
 
         # self.blocksize_byte = int(random.uniform(0.5, 2) * 1048576)  # 单位:byte 随机 0.5~1 MB
 
@@ -365,6 +365,8 @@ class Chain(object):
                 blocktmp.next = []
                 local_tmp.next.append(blocktmp)
                 local_tmp = blocktmp
+            if local_tmp.BlockHeight() > self.lastblock.BlockHeight():
+                self.lastblock = local_tmp  # 更新global chain的lastblock
         return local_tmp  # 返回深拷贝的最后一个区块的指针，如果没拷贝返回None
 
     '''
@@ -629,11 +631,15 @@ class Chain(object):
             blocktmp1 = blocktmp2.last
             stat.append(blocktmp2.content - blocktmp1.content)
             blocktmp2 = blocktmp1
-        plt.hist(stat, bins=20, range=(0, max(stat)))
+        plt.hist(stat, bins=10, histtype='bar', range=(0, max(stat)))
         plt.xlabel('Rounds')
         plt.ylabel('Times')
         plt.title('Block generation interval distribution')
-        plt.show()
+        RESULT_PATH = global_var.get_result_path()
+        plt.savefig(RESULT_PATH / 'block interval distribution.svg')
+        if global_var.get_show_fig():
+            plt.show()
+        plt.close()
 
 
     def CalculateStatistics(self, rounds):
@@ -659,9 +665,13 @@ class Chain(object):
             if blocktmp.blockhead.height > stats["num_of_valid_blocks"]:
                 stats["num_of_valid_blocks"] = blocktmp.blockhead.height
             nextlist = blocktmp.next
-            if len(nextlist) > 1:
-                stats["num_of_forks"] = stats["num_of_forks"] + len(nextlist) - 1
             q.extend(nextlist)
+
+        last_block = self.lastblock.last
+        while last_block:
+            stats["num_of_forks"] += len(last_block.next) - 1
+            last_block = last_block.last
+
         stats["num_of_stale_blocks"] = stats["num_of_generated_blocks"] - stats["num_of_valid_blocks"]
         stats["average_block_time_main"] = rounds / stats["num_of_valid_blocks"]
         stats["block_throughput_main"] = 1 / stats["average_block_time_main"]
@@ -672,6 +682,7 @@ class Chain(object):
         stats["throughput_total_MB"] = blocksize * stats["block_throughput_total"]
         stats["fork_rate"] = stats["num_of_forks"] / stats["num_of_generated_blocks"]
         stats["stale_rate"] = stats["num_of_stale_blocks"] / stats["num_of_generated_blocks"]
+
         return stats
 
 

@@ -108,10 +108,24 @@ def main(
     logging.basicConfig(filename=global_var.get_result_path() / 'events.log',
                         level=global_var.get_log_level(), filemode='w')
     
-    network_param = {'gen_net_approach': network_generator, 'TTL': 500, 'matrix': matrix}
+    # 读取配置文件
+    config = configparser.ConfigParser()
+    config.optionxform = lambda option: option
+    config.read('system_config.ini',encoding='utf-8')
+
+    network_param = {'gen_net_approach': network_generator, 'TTL': 500, 'matrix': matrix,
+                     'show_label':True}
+    if network_generator=="rand":
+        network_param.update({'TTL':config.getint('TopologyNetworkSettings', 'TTL'),
+                        'save_routing_graph': config.getboolean('TopologyNetworkSettings', 'save_routing_graph'),
+                        'ave_degree': config.getfloat('TopologyNetworkSettings', 'ave_degree'),
+                        'show_label': config.getboolean('TopologyNetworkSettings', 'show_label'),
+                        'bandwidth_honest': config.getfloat('TopologyNetworkSettings', 'bandwidth_honest'),
+                        'bandwidth_adv': config.getfloat('TopologyNetworkSettings', 'bandwidth_adv')
+                        })
  
     adversary_ids = ()     # no attacks
     return run(Environment(t, q, 'equal', target, network_param, *adversary_ids), total_round, max_height)
 
 if __name__ == "__main__":
-    main(60000, 10, blocksize=2,max_height=20)
+    main(60000, 10, blocksize=2,max_height=20,network_generator='coo')
