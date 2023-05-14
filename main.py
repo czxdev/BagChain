@@ -84,17 +84,16 @@ def main(
     miniblock_size = 2,
     result_path = None,
     max_height = 1000000,
-    blocksize_coefficient = 5):
+    test_set_interval = 100,
+    validation_set_interval = 10,
+    network_generator = "coo",
+    matrix = None):
 
     global_var_init(n, q, blocksize, miniblock_size, result_path)
     global_var.set_PoW_target(target)
     global_var.set_block_metric_requirement(0.86)
-    # 根据区块与miniblock大小确定测试/验证集发布间隔
-    test_set_interval = 100 # 80
-    #global_var.set_test_set_interval(blocksize_coefficient*blocksize)
     global_var.set_test_set_interval(test_set_interval)
-    #global_var.set_validation_set_interval(5*miniblock_size)
-    global_var.set_validation_set_interval(5*miniblock_size)
+    global_var.set_validation_set_interval(validation_set_interval)
     global_var.set_ensemble_block_num(20)
     global_var.set_log_level(logging.INFO)
     
@@ -109,10 +108,8 @@ def main(
     logging.basicConfig(filename=global_var.get_result_path() / 'events.log',
                         level=global_var.get_log_level(), filemode='w')
     
-    matrix = np.ones([n,n]) - np.eye(n) # 构建全连接网络的邻接矩阵
-    network_param = {'gen_net_approach': 'coo', 'TTL': 500, 'matrix': matrix}   # Topology网络参数
-#                                                 # =>readtype: 读取csv文件类型, 'adj'为邻接矩阵, 'coo'为coo格式的稀疏矩阵
-#                                                 # =>TTL: 区块的最大生存周期   
+    network_param = {'gen_net_approach': network_generator, 'TTL': 500, 'matrix': matrix}
+ 
     adversary_ids = ()     # no attacks
     return run(Environment(t, q, 'equal', target, network_param, *adversary_ids), total_round, max_height)
 
