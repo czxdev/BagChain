@@ -5,7 +5,9 @@
 /.vscode/
 /bin/
 /Results/
-/datasets/*
+/tasks/datasets/cifar-10-batches-py/*
+/tasks/datasets/mnist/*
+/network/topologies/*
 /miscellaneous/*
 /block/
 /pyproject.toml

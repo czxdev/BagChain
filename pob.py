@@ -87,7 +87,7 @@ class PoB(Consensus):
 
         # 模型整合/评估性能
         y_pred = []
-        for i in range(len(x)):
+        for i in range(len(y)):
             predictions = [prediction[i] for prediction in y_pred_list]
             joint_prediction = max(predictions, key=predictions.count)
             y_pred.append(joint_prediction)

@@ -34,7 +34,7 @@ def __init__(result_path = None):
     _var_dict['Blocksize'] = 2
     _var_dict['MINIBLOCK_SIZE'] = 2
     # 学习任务相关
-    _var_dict['DATASET_PATH'] = Path.cwd() / 'datasets/mnist.npz'
+    _var_dict['DATASET_PATH'] = Path.cwd() / 'tasks/datasets'
     _var_dict['MODEL_TYPE'] = 'sklearn.tree.DecisionTreeClassifier'
     _var_dict['METRIC_EVALUTOR'] = 'sklearn.metrics.accuracy_score'
     _var_dict['BLOCK_METRIC_REQUIREMENT'] = 0.91
@@ -42,7 +42,7 @@ def __init__(result_path = None):
     _var_dict['TEST_SET_INTERVAL'] = 90
     _var_dict['VALIDATION_SET_INTERVAL'] = 180
     _var_dict['TASK_QUEUE_LENGTH'] = 2
-    _var_dict['ENSEMBLE_BLOCK_NUM'] = 100
+    _var_dict['TASK_SELECTION'] = "B"
     _var_dict['BAG_SCALE'] = 0.5
     _var_dict['global_task'] = None # 需要在主程序中生成一个全局任务
     _var_dict['LOG_LEVEL'] = logging.INFO
@@ -108,13 +108,13 @@ def get_task_queue_length():
     '''获得任务队列长度'''
     return _var_dict['TASK_QUEUE_LENGTH']
 
-def set_ensemble_block_num(ensemble_block_num):
-    '''设置Key Block中引用Ensemble Block的最大数量 type:int'''
-    _var_dict['ENSEMBLE_BLOCK_NUM'] = ensemble_block_num
+def set_task_selection(task_selection):
+    '''设置任务中数据集与模型的组合选项 type:str'''
+    _var_dict['TASK_SELECTION'] = task_selection
 
-def get_ensemble_block_num():
-    '''获得任务队列长度'''
-    return _var_dict['ENSEMBLE_BLOCK_NUM']
+def get_task_selection():
+    '''获得设置任务中数据集与模型的组合选项 type:str'''
+    return _var_dict['TASK_SELECTION']
 
 def set_bag_scale(bag_scale):
     '''设置有放回抽样集大小 type:float'''

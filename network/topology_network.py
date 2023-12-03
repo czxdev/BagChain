@@ -517,7 +517,9 @@ class TopologyNetwork(Network):
                             font_size=12/self.MINER_NUM**0.5, font_family='times new roman')
 
         RESULT_PATH = global_var.get_net_result_path()
-        plt.savefig(RESULT_PATH / 'network topology.svg')
+        plt.box(False)
+        plt.margins(0)
+        plt.savefig(RESULT_PATH / 'network topology.svg', bbox_inches="tight")
         #plt.pause(1)
         plt.close()
         #plt.ioff()

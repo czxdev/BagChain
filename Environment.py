@@ -327,7 +327,7 @@ class Environment(object):
             'consistency_rate':self.cp_pdf[0,0]/(self.cp_pdf.sum())
         })
         # Chain Quality Property
-        cq_dict, chain_quality_property = chain_quality(self.miners[9].Blockchain)
+        cq_dict, chain_quality_property = chain_quality(self.global_chain)
         stats.update({
             'chain_quality_property': cq_dict,
             'ratio_of_blocks_contributed_by_malicious_players': round(chain_quality_property, 3),
@@ -430,16 +430,24 @@ class Environment(object):
 
     def plot_metric_against_height(self):
         '''绘制性能指标随高度的变化曲线'''
+        plt.rc("font",family="Times New Roman")# 配置字体
+        from matplotlib import rcParams
+        config = {
+        "font.family": 'serif', # 衬线字体
+        "font.size": 10.5, # 相当于五号大小
+        "font.serif": ['SimSun'] # 宋体
+        }
+        rcParams.update(config)
         fig, ax = plt.subplots()
         height_test = list(self.test_set_metric.keys())
         metric_test = list(self.test_set_metric.values())
-        ax.plot(height_test,metric_test,'b^-',label="test set metric")
+        ax.plot(height_test,metric_test,'^-',label="Test Set",color=plt.get_cmap("RdBu")(0.85))
         height_validate = list(self.validation_set_metric.keys())
         metric_validate = list(self.validation_set_metric.values())
-        ax.plot(height_validate,metric_validate,'r+-',label="validation set metric")
-        ax.set_xlabel("height")
-        ax.set_ylabel("metric")
-        ax.set_title("Block metric vs Height")
+        ax.plot(height_validate,metric_validate,'+-',label="Validation Set",color=plt.get_cmap("RdBu")(0.15))
+        ax.set_xlabel("Height")
+        ax.set_ylabel("Accuracy")
+        # ax.set_title("Block metric vs Height")
         ax.legend()
         ax.grid(True)
         fig.savefig(global_var.get_result_path()/"metric_plot.svg")
