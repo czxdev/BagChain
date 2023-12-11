@@ -13,6 +13,9 @@ from chain import Block, BlockHead, Chain, BlockList
 from task import Task
 from functions import hashsha256
 from main import global_task_init,global_var_init
+from arcing import arc, bagging, aggregate_and_predict_proba
+
+ensemble_method = arc
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +37,7 @@ class PoB(Consensus):
         '''初始化'''
         self.target = '0'
         self.ctr=0 #计数器
-        # 通过evaluation_cache缓存predict的结果，以字符串为键，将测试集验证集上模型的预测结果装入列表作为值
+        # 通过evaluation_cache缓存prdict_array，以字符串为键，将测试集与验证集上模型的预测结果装入列表作为值
         self.evaluation_cache:dict[str,list[ndarray]] = {}
         self.current_height = 0 # 保存当前高度
         self.ensemble_block_validation_cache:list[str] = [] # 缓存已经验证通过的ensemble_block的哈希
@@ -81,17 +84,16 @@ class PoB(Consensus):
             if cache[position] is not None:
                 y_pred_list.append(cache[position])
             else:
-                prediction = model.predict(x)
-                y_pred_list.append(prediction)
-                cache[position] = prediction
+                predict_array = aggregate_and_predict_proba(model, x)
+                y_pred_list.append(predict_array)
+                cache[position] = predict_array
 
-        # 模型整合/评估性能
-        y_pred = []
-        for i in range(len(y)):
-            predictions = [prediction[i] for prediction in y_pred_list]
-            joint_prediction = max(predictions, key=predictions.count)
-            y_pred.append(joint_prediction)
-        y_pred = np.array(y_pred)
+        # Alternative: majority voting instead of probablistic combining
+        # 模型的概率合并
+        classes = model[0].classes_
+        y_pred_merge = np.concatenate(y_pred_list, axis=2)
+        y_pred_proba = np.mean(y_pred_merge, axis=2)
+        y_pred = classes.take(np.argmax(y_pred_proba, axis=1), axis=0)
 
         return current_task.metric_evaluator(y,y_pred) # 评估模型集成之后的性能
 
@@ -287,19 +289,14 @@ class PoB(Consensus):
             training_success 训练成功标识 type:Bool
         """
         current_task = lastblock.blockextra.task_queue[0]
-        model = current_task.model_constructor()
         x_train, y_train = current_task.training_set
-        bag_scale = current_task.bag_scale
-        # Bootstrap
-        indexes = np.random.randint(0, len(x_train), int(len(x_train)*bag_scale))
-        bag = x_train[indexes]
-        target = y_train[indexes]
-        # 训练
-        model.fit(bag, target)
-        # 构造miniblock
+        # generate a sequence of models with arc
+        model_seq, _ = ensemble_method(global_var.get_arcing_round(), x_train, y_train,
+                       current_task.model_constructor)
+        model_hash = hashsha256([id(model) for model in model_seq]) # hash concatenation of model id
         blockextra = Block.BlockExtra(id(current_task), None, None, None, None,
                                       None, lastblock.BlockType.MINIBLOCK,
-                                      model, id(model))
+                                      model_seq, model_hash)
         # miniblock中继承上一个区块中的task_list
         blockhead = BlockHead(lastblock.blockhead.blockhash, None,
                               time.time_ns(), None, None, lastblock.blockhead.height+1, miner)

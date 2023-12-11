@@ -33,8 +33,18 @@ class NNClassifier():
         self.net = NNClassifier.NN_MODEL().to(self.device)
         self.loss_function = nn.CrossEntropyLoss()
         self.optimizer = optim.Adam(self.net.parameters(), lr=1e-3)
+        self.classes_ = None
 
-    def predict(self, test_loader: torch.utils.data.DataLoader):
+    def predict(self, x: torch.utils.data.DataLoader):
+        if isinstance(x, torch.utils.data.DataLoader):
+            test_loader = x
+        else:
+            x_tensor, _ = self.preprocessing(x, np.array([]))
+            dataset = torch.utils.data.TensorDataset(x_tensor)
+            test_loader = torch.utils.data.DataLoader(dataset,
+                                                    batch_size=NNClassifier.PREDICT_BATCH_SIZE,
+                                                    shuffle=False)
+
         self.net.eval()
         #self.net.to(self.device)
         predict_list = []
@@ -46,11 +56,35 @@ class NNClassifier():
                 del outputs
                 predict_list.append(predict)
 
-        #self.net.cpu()
-        return torch.cat(predict_list).cpu().numpy()
+            result = torch.cat(predict_list).cpu().numpy()
+        return self.classes_.take(result)
+
+    def predict_proba(self, x: torch.utils.data.DataLoader):
+        if isinstance(x, torch.utils.data.DataLoader):
+            test_loader = x
+        else:
+            x_tensor, _ = self.preprocessing(x, np.array([]))
+            dataset = torch.utils.data.TensorDataset(x_tensor)
+            test_loader = torch.utils.data.DataLoader(dataset,
+                                                    batch_size=NNClassifier.PREDICT_BATCH_SIZE,
+                                                    shuffle=False)
+        
+        self.net.eval()
+        #self.net.to(self.device)
+        predict_prob_list = []
+        with torch.no_grad():
+            for data in test_loader:
+                # withdraw a batch and predict
+                outputs = self.net(data[0].to(self.device))
+                predict_prob_list.append(torch.nn.functional.softmax(outputs,dim=1))
+                del outputs
+
+            return torch.cat(predict_prob_list).cpu().numpy()
 
     def fit(self, x:np.ndarray, y:np.ndarray):
-        x_tensor_train, y_tensor_train = self.preprocessing(x, y)
+        if self.classes_ is None:
+            self.classes_, y_encoded = np.unique(y, return_inverse=True)
+        x_tensor_train, y_tensor_train = self.preprocessing(x, y_encoded)
         training_dataset = torch.utils.data.TensorDataset(x_tensor_train, y_tensor_train)
         training_loader = torch.utils.data.DataLoader(training_dataset, 
                                                       batch_size=NNClassifier.TRAINING_BATCH_SIZE,
@@ -61,9 +95,7 @@ class NNClassifier():
     def train(self, trainloader:torch.utils.data.DataLoader, epochs):
         if self.optimizer is None:
             raise Warning("Model cannot be trained as the optimizer has been deleted")
-        train_loss = 0
-        correct = 0
-        total = 0
+
         self.net.train()
         for i in range(epochs):
             for image, label in trainloader:
@@ -74,10 +106,6 @@ class NNClassifier():
                 loss.backward()
                 self.optimizer.step()
 
-                train_loss += loss.item()
-                _, predicted = outputs.max(1)
-                total += label.size(0)
-                correct += predicted.eq(label).sum().item()
         # self.net.cpu() # make room for training of other models 
         del self.optimizer
         self.optimizer = None

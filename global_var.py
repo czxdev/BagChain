@@ -38,6 +38,7 @@ def __init__(result_path = None):
     _var_dict['MODEL_TYPE'] = 'sklearn.tree.DecisionTreeClassifier'
     _var_dict['METRIC_EVALUTOR'] = 'sklearn.metrics.accuracy_score'
     _var_dict['BLOCK_METRIC_REQUIREMENT'] = 0.91
+    _var_dict['ARCING_ROUND'] = 3
     # 系统参数
     _var_dict['TEST_SET_INTERVAL'] = 90
     _var_dict['VALIDATION_SET_INTERVAL'] = 180
@@ -84,6 +85,15 @@ def set_block_metric_requirement(block_metric):
 def get_block_metric_requirement():
     '''获得区块指标要求'''
     return _var_dict['BLOCK_METRIC_REQUIREMENT']
+
+def set_arcing_round(arcing_round):
+    '''设置区块指标要求'''
+    _var_dict['ARCING_ROUND'] = arcing_round
+
+def get_arcing_round():
+    '''获得区块指标要求'''
+    return _var_dict['ARCING_ROUND']
+
 def set_test_set_interval(interval):
     '''设置测试集发布时间间隔 type:int'''
     _var_dict['TEST_SET_INTERVAL'] = interval
