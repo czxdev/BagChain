@@ -1,3 +1,3 @@
 from .NNClassifier import NNClassifier
-from .lenet import LeNet
+from .googlenet import GoogLeNet
 from .resnet import ResNet18

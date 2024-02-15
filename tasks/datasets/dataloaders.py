@@ -53,7 +53,8 @@ def preprocessing(x:np.ndarray) -> torch.Tensor:
         x_tensor = torch.stack(images)
         return x_tensor
 
-PREDICT_BATCH_SIZE = 2048
+from ..models import NNClassifier
+PREDICT_BATCH_SIZE = NNClassifier.PREDICT_BATCH_SIZE
 
 def cifar_loader(dataset_path: Path):
     cifar_path = dataset_path / 'cifar-10-batches-py'

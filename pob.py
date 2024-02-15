@@ -37,7 +37,7 @@ class PoB(Consensus):
         '''初始化'''
         self.target = '0'
         self.ctr=0 #计数器
-        # 通过evaluation_cache缓存prdict_array，以字符串为键，将测试集与验证集上模型的预测结果装入列表作为值
+        # 通过evaluation_cache缓存prdict_array，以Miniblock的哈希值为键，将测试集与验证集上模型的预测结果装入列表作为值
         self.evaluation_cache:dict[str,list[ndarray]] = {}
         self.current_height = 0 # 保存当前高度
         self.ensemble_block_validation_cache:list[str] = [] # 缓存已经验证通过的ensemble_block的哈希

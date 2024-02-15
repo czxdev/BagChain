@@ -3,19 +3,26 @@ from torch import nn
 from torch import optim
 import torch.nn.functional as F
 import torchvision.transforms as transforms
-
+from torch.cuda.amp import autocast, GradScaler
 import numpy as np
 from PIL import Image
+import gc
 
-from .lenet import LeNet
-#from .resnet import ResNet18
+from .googlenet import GoogLeNet
+from .resnet import ResNet18
+
+def reclaim_vram():
+    '''Clear VRAM and RAM for a new model'''
+    gc.collect()
+    torch.cuda.empty_cache()
 
 class NNClassifier():
     '''NNClassifier for Cifar10'''
     TRAINING_BATCH_SIZE = 64
     PREDICT_BATCH_SIZE = 128
     EPOCH = 10
-    NN_MODEL = LeNet
+    NN_MODEL = ResNet18
+    MIX_PRECISION = True
     IMAGE_TRANSFORM = transforms.Compose([transforms.ToTensor(), 
                                           transforms.Normalize([0.5,0.5,0.5],[0.5,0.5,0.5])])
     def preprocessing(self, x:np.ndarray, y:np.ndarray) -> tuple[torch.Tensor, torch.Tensor]:
@@ -95,16 +102,26 @@ class NNClassifier():
     def train(self, trainloader:torch.utils.data.DataLoader, epochs):
         if self.optimizer is None:
             raise Warning("Model cannot be trained as the optimizer has been deleted")
-
+        
         self.net.train()
+        if NNClassifier.MIX_PRECISION:
+            scaler = GradScaler()
         for i in range(epochs):
             for image, label in trainloader:
                 self.optimizer.zero_grad()
                 image, label = image.to(self.device), label.to(self.device)
-                outputs = self.net(image)
-                loss = self.loss_function(outputs, label)
-                loss.backward()
-                self.optimizer.step()
+                if NNClassifier.MIX_PRECISION:
+                    with autocast():
+                        outputs = self.net(image)
+                        loss = self.loss_function(outputs, label)
+                    scaler.scale(loss).backward()
+                    scaler.step(self.optimizer)
+                    scaler.update()
+                else:
+                    outputs = self.net(image)
+                    loss = self.loss_function(outputs, label)
+                    loss.backward()
+                    self.optimizer.step()
 
         # self.net.cpu() # make room for training of other models 
         del self.optimizer
