@@ -424,8 +424,11 @@ class Environment(object):
                     average_test_set_metric,
                     average_validation_set_metric_list)
         self.plot_metric_against_height()
-        print("End")
-        result_collection = {}
+        result_collection = {'test_metric_average': average_test_set_metric,
+                             'validation_metric_average': average_validation_set_metric_list,
+                             'test_metric_list': test_set_metric_list,
+                             'validation_metric_list': validation_set_metric_list,
+                             'chain_stats': stats}
         return result_collection
 
     def plot_metric_against_height(self):

@@ -7,16 +7,18 @@ from typing import Any, Callable, List, Optional, Tuple
 
 class GoogLeNet(nn.Module):
     def __init__(
-        self,
+        self,*,
+        input_channels: int = 3,
         num_classes: int = 10,
-        dropout: float = 0.4
+        dropout: float = 0.4,
+        **args: Any
     ) -> None:
         super().__init__()
 
         conv_block = BasicConv2d
         inception_block = Inception
 
-        self.conv1 = conv_block(3, 192, kernel_size=3, padding=1)
+        self.conv1 = conv_block(input_channels, 192, kernel_size=3, padding=1)
 
         self.inception3a = inception_block(192, 64, 96, 128, 16, 32, 32)
         self.inception3b = inception_block(256, 128, 128, 192, 32, 96, 64)
@@ -131,7 +133,16 @@ class BasicConv2d(nn.Module):
 
 def test():
     net = GoogLeNet()
-    x = torch.randn(1,3,32,32)
+    x = torch.randn(10,3,32,32)
     y = net(x)
-    print(y)
-#test()
+    print(y.size())
+    net = GoogLeNet(input_channels=1, num_classes=10)
+    x = torch.randn(10,1,32,32)
+    y = net(x)
+    print(y.size())
+    x = torch.randn(10,1,28,28)
+    y = net(x)
+    print(y.size())
+
+if __name__ == '__main__':
+    test()

@@ -5,11 +5,7 @@ import logging
 import global_var
 import configparser
 from Environment import Environment
-from functions import for_name
-from task import Task
-
-from tasks import mnist_loader
-from tasks import cifar_loader
+from task import global_task_init
 
 def get_time(f):
     def inner(*arg, **kwarg):
@@ -31,35 +27,6 @@ def global_var_init(n, q, blocksize, miniblock_size, result_path = None):
     global_var.set_miniblock_size(miniblock_size)
     global_var.set_show_fig(False)
 
-def global_task_init():
-    '''
-        为Task获取数据集、性能评估函数与模型
-        selection A: MNIST + Decision Tree Classifier As base model
-        selection B: CIFAR19 + LeNet As base model
-    '''
-    dataset_path = global_var.get_dataset_path()
-    selection = global_var.get_task_selection()
-    if selection == "A":
-        training_set, test_set, validation_set = mnist_loader(dataset_path)
-        metric_evaluator = for_name(global_var.get_metric_evaluator())
-        model = for_name("sklearn.tree.DecisionTreeClassifier")
-        block_metric = 0.8
-    elif selection == "B":
-        training_set, test_set, validation_set = cifar_loader(dataset_path)
-        from tasks.models import NNClassifier
-        metric_evaluator = for_name(global_var.get_metric_evaluator())
-        model = NNClassifier
-        block_metric = 0.55
-        global_var.set_bag_scale(1)
-    else:
-        raise ValueError("Selection of task is invalid")
-
-    # 构建Task对象
-    task1 = Task(training_set, test_set,validation_set, metric_evaluator,
-                block_metric, model, global_var.get_bag_scale())
-    task1.set_client_id(0)
-    global_var.set_global_task(task1)
-
 
 @get_time
 def run(Z, total_round, max_height) -> dict:
@@ -67,7 +34,7 @@ def run(Z, total_round, max_height) -> dict:
     return Z.view()
 
 def main(
-    total_round = 100,
+    total_round = 100,*,
     n = 10,  # number of miners
     t = 0,   # maximum number of adversary
     q = 5,
@@ -79,7 +46,9 @@ def main(
     test_set_interval = 100,
     validation_set_interval = 10,
     network_generator = "coo",
-    matrix = None):
+    matrix = None,
+    task_selection = "A",
+    noniid_conf = None):
 
     global_var_init(n, q, blocksize, miniblock_size, result_path)
     global_var.set_PoW_target(target)
@@ -87,7 +56,7 @@ def main(
     global_var.set_validation_set_interval(validation_set_interval)
     global_var.set_log_level(logging.INFO)
     global_var.save_configuration()
-    global_task_init()
+    global_task_init(task_selection, noniid_conf=noniid_conf)
 
     # 配置日志文件
     logging.basicConfig(filename=global_var.get_result_path() / 'events.log',
@@ -116,8 +85,17 @@ if __name__ == "__main__":
     import os
     #from affinity import set_process_affinity_mask
     #set_process_affinity_mask(os.getpid(), 1<<6)
-    MINER_NUM = 7
+    MINER_NUM = 3
     import numpy as np
     matrix = np.ones((MINER_NUM,MINER_NUM)) - np.eye(MINER_NUM)
-    main(60000, MINER_NUM, blocksize=6,max_height=15,network_generator='matrix',
-         matrix=matrix)
+    print(main(60000, n=MINER_NUM, blocksize=6,max_height=2,network_generator='matrix',
+         matrix=matrix, task_selection='C-CIFAR10-CNN',
+         noniid_conf={'type':'label_distribution', 'global_ratio':0.1, 'label_per_miner':3, 'beta':0.5}))
+    
+    # Task selection: A, B, C-[DATASET]-[MODEL]
+    # Possible selections: A, B, C-MNIST-DTC, C-MNIST-CNN,
+    #                            C-CIFAR10-CNN, C-CIFAR10-GoogLeNet, C-CIFAR10-ResNet18,
+    #                            C-FEMNIST-DTC, C-FEMNIST-CNN, C-FEMNIST-GoogLeNet, C-FEMNIST-ResNet18,
+    #                            C-SVHN-CNN, C-SVHN-GoogLeNet, C-SVHN-ResNet18
+    # Note: DTC is not suitable for RGB images
+    # noniid_conf = {'type':'label_quantity', 'global_ratio': 0.1, 'beta': 0.5, 'label_per_miner': 3}

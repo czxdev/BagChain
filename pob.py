@@ -33,8 +33,9 @@ def find_task_by_id(block:Block, task_id:int) -> Task:
 
 class PoB(Consensus):
     '''继承Consensus类，实现共识算法'''
-    def __init__(self):
+    def __init__(self, miner_id:int):
         '''初始化'''
+        self.miner_id = miner_id
         self.target = '0'
         self.ctr=0 #计数器
         # 通过evaluation_cache缓存prdict_array，以Miniblock的哈希值为键，将测试集与验证集上模型的预测结果装入列表作为值
@@ -64,14 +65,10 @@ class PoB(Consensus):
         # elif self.current_height > miniblock_list[0].blockhead.height:
             # logger.info("cache miss for miniblock %s",miniblock_list[0].name)
 
-        if dataset_type is Task.DatasetType.TEST_SET:
-            x, y = current_task.test_set
-            position = 0
-        elif dataset_type is Task.DatasetType.VALIDATION_SET:
-            x, y = current_task.validation_set
-            position = 1
-        else:
+        if dataset_type == Task.DatasetType.TRAINING_SET:
             raise ValueError("evaluation on training set not allowed")
+        x, y = current_task.get_dataset(self.miner_id, dataset_type)
+        position = 1 if dataset_type == Task.DatasetType.VALIDATION_SET else 0
         
         y_pred_list = []
         for miniblock in miniblock_list:
@@ -289,7 +286,7 @@ class PoB(Consensus):
             training_success 训练成功标识 type:Bool
         """
         current_task = lastblock.blockextra.task_queue[0]
-        x_train, y_train = current_task.training_set
+        x_train, y_train = current_task.get_dataset(miner, Task.DatasetType.TRAINING_SET)
         # generate a sequence of models with arc
         model_seq, _ = ensemble_method(global_var.get_arcing_round(), x_train, y_train,
                        current_task.model_constructor)

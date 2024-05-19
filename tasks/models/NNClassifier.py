@@ -8,6 +8,7 @@ import numpy as np
 from PIL import Image
 import gc
 
+from .simple_cnn import SimpleCNN
 from .googlenet import GoogLeNet
 from .resnet import ResNet18
 
@@ -21,32 +22,48 @@ class NNClassifier():
     TRAINING_BATCH_SIZE = 64
     PREDICT_BATCH_SIZE = 128
     EPOCH = 10
-    NN_MODEL = ResNet18
+    NN_MODEL = SimpleCNN
     MIX_PRECISION = True
-    IMAGE_TRANSFORM = transforms.Compose([transforms.ToTensor(), 
-                                          transforms.Normalize([0.5,0.5,0.5],[0.5,0.5,0.5])])
-    def preprocessing(self, x:np.ndarray, y:np.ndarray) -> tuple[torch.Tensor, torch.Tensor]:
+    
+    @staticmethod
+    def preprocessing(x:np.ndarray, y:np.ndarray = None, *, input_channels = 3, image_shape = (32,32), mean = None, std = None, **kwargs) -> tuple[torch.Tensor, torch.Tensor]:
+        '''The default values here is for Cifar10 dataset, which has 3 channels and 32x32 images'''
         images = []
+        IMAGE_TRANSFORM = transforms.Compose([transforms.ToTensor(), 
+                                          transforms.Normalize(mean or [0.5]*input_channels, std or [0.5]*input_channels)])
+        width, height = image_shape
         for i in range(x.shape[0]):
-            image_tensor = NNClassifier.IMAGE_TRANSFORM(Image.fromarray(x.reshape(-1,3,32,32).transpose((0,2,3,1))[i]))
+            if input_channels == 1: # Grey scale image
+                image_tensor = IMAGE_TRANSFORM(Image.fromarray(x.reshape(-1,width,height)[i]))
+            elif input_channels == 3: # RGB image
+                image_tensor = IMAGE_TRANSFORM(Image.fromarray(x.reshape(-1,input_channels,width,height).transpose((0,2,3,1))[i]))
+            else:
+                raise ValueError("The input_channels is not supported")
             images.append(image_tensor)
 
         x_tensor = torch.stack(images)
+        if y is None:
+            return x_tensor
         y_tensor = torch.tensor(y, dtype=torch.int64)
         return x_tensor, y_tensor
     
-    def __init__(self) -> None:
-        self.device = torch.device("cuda:0") # Use GPU
-        self.net = NNClassifier.NN_MODEL().to(self.device)
+    def __init__(self, nn_params: dict = None) -> None:
+        try:
+            import torch_directml
+            self.device = torch_directml.device()
+        except ModuleNotFoundError:
+            self.device = torch.device('cuda:0')
+        self.nn_params = nn_params or {}
+        self.classes_ = None
+        self.net = NNClassifier.NN_MODEL(**nn_params).to(self.device)
         self.loss_function = nn.CrossEntropyLoss()
         self.optimizer = optim.Adam(self.net.parameters(), lr=1e-3)
-        self.classes_ = None
 
     def predict(self, x: torch.utils.data.DataLoader):
         if isinstance(x, torch.utils.data.DataLoader):
             test_loader = x
         else:
-            x_tensor, _ = self.preprocessing(x, np.array([]))
+            x_tensor, _ = self.preprocessing(x, np.array([]), **self.nn_params)
             dataset = torch.utils.data.TensorDataset(x_tensor)
             test_loader = torch.utils.data.DataLoader(dataset,
                                                     batch_size=NNClassifier.PREDICT_BATCH_SIZE,
@@ -70,7 +87,7 @@ class NNClassifier():
         if isinstance(x, torch.utils.data.DataLoader):
             test_loader = x
         else:
-            x_tensor, _ = self.preprocessing(x, np.array([]))
+            x_tensor, _ = self.preprocessing(x, np.array([]), **self.nn_params)
             dataset = torch.utils.data.TensorDataset(x_tensor)
             test_loader = torch.utils.data.DataLoader(dataset,
                                                     batch_size=NNClassifier.PREDICT_BATCH_SIZE,
@@ -89,9 +106,8 @@ class NNClassifier():
             return torch.cat(predict_prob_list).cpu().numpy()
 
     def fit(self, x:np.ndarray, y:np.ndarray):
-        if self.classes_ is None:
-            self.classes_, y_encoded = np.unique(y, return_inverse=True)
-        x_tensor_train, y_tensor_train = self.preprocessing(x, y_encoded)
+        self.classes_, y_encoded = np.unique(y, return_inverse=True)
+        x_tensor_train, y_tensor_train = self.preprocessing(x, y_encoded, **self.nn_params)
         training_dataset = torch.utils.data.TensorDataset(x_tensor_train, y_tensor_train)
         training_loader = torch.utils.data.DataLoader(training_dataset, 
                                                       batch_size=NNClassifier.TRAINING_BATCH_SIZE,

@@ -31,7 +31,7 @@ class Miner(object):
         self.q = q
         self.Blockchain = Chain()   # 维护的区块链
         #共识相关
-        self.consensus:Consensus = for_name(global_var.get_consensus_type())()    # 共识
+        self.consensus:Consensus = for_name(global_var.get_consensus_type())(Miner_ID)    # 共识
         self.consensus.setparam(target)                                 # 设置共识参数
         #输入内容相关
         self.input = 0          # 要写入新区块的值

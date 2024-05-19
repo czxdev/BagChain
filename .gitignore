@@ -7,6 +7,8 @@
 /Results/
 /tasks/datasets/cifar-10-batches-py/*
 /tasks/datasets/mnist/*
+/tasks/datasets/femnist/*
+/tasks/datasets/svhn_cropped/*
 /network/topologies/*
 /miscellaneous/*
 /block/
