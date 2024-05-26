@@ -54,7 +54,8 @@ class NNClassifier():
         except ModuleNotFoundError:
             self.device = torch.device('cuda:0')
         self.nn_params = nn_params or {}
-        self.classes_ = None
+        num_classes = self.nn_params.get('num_classes', None)
+        self.classes_ = None if num_classes is None else np.arange(num_classes)
         self.net = NNClassifier.NN_MODEL(**nn_params).to(self.device)
         self.loss_function = nn.CrossEntropyLoss()
         self.optimizer = optim.Adam(self.net.parameters(), lr=1e-3)
@@ -106,7 +107,10 @@ class NNClassifier():
             return torch.cat(predict_prob_list).cpu().numpy()
 
     def fit(self, x:np.ndarray, y:np.ndarray):
-        self.classes_, y_encoded = np.unique(y, return_inverse=True)
+        if self.classes_ is None:
+            self.classes_, y_encoded = np.unique(y, return_inverse=True)
+        else:
+            y_encoded = np.searchsorted(self.classes_, y)
         x_tensor_train, y_tensor_train = self.preprocessing(x, y_encoded, **self.nn_params)
         training_dataset = torch.utils.data.TensorDataset(x_tensor_train, y_tensor_train)
         training_loader = torch.utils.data.DataLoader(training_dataset, 
