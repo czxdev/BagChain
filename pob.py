@@ -15,7 +15,7 @@ from functions import hashsha256
 from main import global_task_init,global_var_init
 from arcing import arc, bagging, aggregate_and_predict_proba
 
-ensemble_method = arc
+ensemble_method = bagging
 
 logger = logging.getLogger(__name__)
 
@@ -321,21 +321,36 @@ class PoB(Consensus):
             return (None,False)
         minimum_metric = current_task.block_metric_requirement
 
+        # 过滤掉性能不符合最低要求的模型
+        metrics_debug = []
+        valid_miniblock_list = []
+        for miniblock in miniblock_list:
+            metric = self.validate_evaluate_miniblock([miniblock], current_task,
+                                                      Task.DatasetType.TEST_SET)
+            metrics_debug.append(metric)
+            if metric >= minimum_metric:
+                valid_miniblock_list.append(miniblock)
         # 评估模型集成之后的性能
-        metric = self.validate_evaluate_miniblock(miniblock_list,
+        if len(valid_miniblock_list) == 0:
+            logger.error(f'no valid miniblock found')
+            return (None, False)
+        else:
+            logger.info(f'M{self.miner_id}:metric of all miniblocks: {metrics_debug}')
+        metric = self.validate_evaluate_miniblock(valid_miniblock_list,
                                                   current_task,
                                                   Task.DatasetType.TEST_SET)
         # 判断性能指标是否符合最低性能要求
         if metric < minimum_metric:
+            logger.error(f'ensemble metric {metric} fall below minimum_metric')
             return (None, False)
 
-        miniblock_hash = [miniblock.calculate_blockhash() for miniblock in miniblock_list]
+        miniblock_hash = [miniblock.calculate_blockhash() for miniblock in valid_miniblock_list]
         blockhead = BlockHead(miniblock_list[0].blockhead.prehash, None, time.time_ns(),
                               None, None, miniblock_list[0].blockhead.height, miner)
 
         blockextra = Block.BlockExtra(id(current_task),
                                       None, None,
-                                      miniblock_hash, miniblock_list.copy(),
+                                      miniblock_hash, valid_miniblock_list,
                                       metric, Block.BlockType.BLOCK)
         new_block = Block(''.join(['B',str(global_var.get_block_number())]),
                           blockhead, None, is_adversary, blockextra,

@@ -89,8 +89,9 @@ if __name__ == "__main__":
     import numpy as np
     matrix = np.ones((MINER_NUM,MINER_NUM)) - np.eye(MINER_NUM)
     print(main(60000, n=MINER_NUM, blocksize=6,max_height=2,network_generator='matrix',
-         matrix=matrix, task_selection='C-CIFAR10-CNN',
-         noniid_conf={'type':'label_distribution', 'global_ratio':0.1, 'label_per_miner':3, 'beta':0.5}))
+         matrix=matrix, task_selection='C-SVHN-GoogLeNet',
+         noniid_conf={'type':'label_distribution', 'global_ratio':0.1, 'label_per_miner':3,
+                      'beta':0.5, 'capable_miner_num': 2}))
     
     # Task selection: A, B, C-[DATASET]-[MODEL]
     # Possible selections: A, B, C-MNIST-DTC, C-MNIST-CNN,
@@ -98,4 +99,8 @@ if __name__ == "__main__":
     #                            C-FEMNIST-DTC, C-FEMNIST-CNN, C-FEMNIST-GoogLeNet, C-FEMNIST-ResNet18,
     #                            C-SVHN-CNN, C-SVHN-GoogLeNet, C-SVHN-ResNet18
     # Note: DTC is not suitable for RGB images
-    # noniid_conf = {'type':'label_quantity', 'global_ratio': 0.1, 'beta': 0.5, 'label_per_miner': 3}
+    # noniid_conf = {'type':'label_quantity', 'global_ratio': 0.1, 'beta': 0.5,
+    #                'label_per_miner': 3, 'capable_miner_num': None}
+    #               'capable_miner_num' means the number of miners that own both computing power and private dataset
+    #                                   If it is None, it equals to miner_num by default
+                    

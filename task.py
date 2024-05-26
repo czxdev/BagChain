@@ -97,18 +97,22 @@ def global_task_init(selection:str, noniid_conf: dict = None):
         dataset = selection[1]
         model = selection[2]
         miner_num = global_var.get_miner_num()
+        capable_miner_num = noniid_conf.get('capable_miner_num') or miner_num
         # Load datasets
         if dataset == "MNIST":
             training_set, test_set, validation_set = mnist_loader(dataset_path)
-            block_metric = 0.45
+            block_metric = 0.35
             nn_params = {'input_channels': 1, 'image_shape': (28, 28), 'num_classes': 10,
-                         'mean': [33.791224489795916], 'std': [79.17246322228642]}
+                         'mean': [0.13251460584233693], 'std': [0.310480247930535]}
+                         # 'mean': [33.791224489795916], 'std': [79.17246322228642]
         elif dataset == "CIFAR10":
             training_set, test_set, validation_set = cifar_loader(dataset_path)
             block_metric = 0.2
             nn_params = {'input_channels': 3, 'image_shape': (32, 32), 'num_classes': 10,
-                         'mean': [126.02464140625, 123.70850419921875, 114.85431865234375],
-                         'std': [62.89639134921989, 61.93752718231368, 66.7060563956159]}
+                         'mean': [0.4942142800245098, 0.4851313890165441, 0.4504090927542892],
+                         'std': [0.24665251509497996, 0.24289226346005366, 0.2615923780220232]}
+                         #'mean': [126.02464140625, 123.70850419921875, 114.85431865234375],
+                         #'std': [62.89639134921989, 61.93752718231368, 66.7060563956159]
         elif dataset == "FEMNIST":
             training_set, test_set, validation_set = femnist_loader(dataset_path, miner_num, noniid_conf['global_ratio'])
             block_metric = 0.2
@@ -116,10 +120,12 @@ def global_task_init(selection:str, noniid_conf: dict = None):
                          'mean': [0.9638689148893337], 'std': [0.15864969199187845]}
         elif dataset == "SVHN":
             training_set, test_set, validation_set = svhn_loader(dataset_path)
-            block_metric = 0.2
+            block_metric = 0.1
             nn_params = {'input_channels': 3, 'image_shape': (32, 32), 'num_classes': 10,
-                         'mean': [115.36790510387456, 115.38643994650815, 119.58916846183303],
-                          'std': [55.95578582361535, 57.77526543347282, 58.26906231799034]}
+                         'mean': [0.4524231572700963, 0.4524958429274829, 0.4689771312228746],
+                          'std': [0.21943445421025629, 0.22656966836656006, 0.228506126737217]}
+                         #'mean': [115.36790510387456, 115.38643994650815, 119.58916846183303],
+                         #'std': [55.95578582361535, 57.77526543347282, 58.26906231799034]
         else:
             raise ValueError("DATASET match none of the following: MNIST, CIFAR10, FEMNIST, SVHN")
         
@@ -133,14 +139,15 @@ def global_task_init(selection:str, noniid_conf: dict = None):
             y_train = training_set[1]
             
             if noniid_conf['type'] == "label_quantity":
-                data_index = partition_label_quantity(noniid_conf['label_per_miner'], miner_num, 
+                data_index = partition_label_quantity(noniid_conf['label_per_miner'], capable_miner_num, 
                                                       nn_params['num_classes'], y_train)
             elif noniid_conf['type'] == "label_distribution":
-                data_index = partition_label_distribution(noniid_conf['beta'], miner_num, 
+                data_index = partition_label_distribution(noniid_conf['beta'], capable_miner_num, 
                                                           nn_params['num_classes'], y_train)
             else:
                 raise ValueError("Invalid non-iid data distribution type")
-            training_set = partition_by_index(training_set, global_dataset, miner_num, data_index)
+            training_set = partition_by_index(training_set, global_dataset, capable_miner_num,
+                                              miner_num, data_index)
 
         # Load models
         if model == "DTC":

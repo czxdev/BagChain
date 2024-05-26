@@ -32,15 +32,15 @@ class NNClassifier():
         IMAGE_TRANSFORM = transforms.Compose([transforms.ToTensor(), 
                                           transforms.Normalize(mean or [0.5]*input_channels, std or [0.5]*input_channels)])
         width, height = image_shape
+        if input_channels == 1:
+            x_reshape = x.reshape(-1, width, height)
+        elif input_channels == 3:
+            x_reshape = x.reshape(-1, input_channels, width, height).transpose((0,2,3,1))
+        else:
+            raise ValueError("The input_channels is not supported")
         for i in range(x.shape[0]):
-            if input_channels == 1: # Grey scale image
-                image_tensor = IMAGE_TRANSFORM(Image.fromarray(x.reshape(-1,width,height)[i]))
-            elif input_channels == 3: # RGB image
-                image_tensor = IMAGE_TRANSFORM(Image.fromarray(x.reshape(-1,input_channels,width,height).transpose((0,2,3,1))[i]))
-            else:
-                raise ValueError("The input_channels is not supported")
+            image_tensor = IMAGE_TRANSFORM(Image.fromarray(x_reshape[i]))
             images.append(image_tensor)
-
         x_tensor = torch.stack(images)
         if y is None:
             return x_tensor

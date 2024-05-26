@@ -515,15 +515,15 @@ class Chain(object):
                 # 建立Key Block节点
                 if blocktmp.isAdversaryBlock:
                     dot.node(blocktmp.name, shape='rect', color='red',
-                             label=blocktmp.name+':'+str(blocktmp.blockextra.metric))
+                             label=blocktmp.name+':'+str(round(blocktmp.blockextra.metric, 4)))
                 else:
                     dot.node(blocktmp.name,shape='rect',color='orange',
-                             label=blocktmp.name+':'+str(blocktmp.blockextra.metric))
+                             label=blocktmp.name+':'+str(round(blocktmp.blockextra.metric, 4)))
                 # 建立Ensemble Block节点
                 for ensemble_block in blocktmp.blockextra.ensemble_block_list:
                     if ensemble_block.name not in ensemble_block_name_list:
                         dot.node(ensemble_block.name, shape='rect', color='yellow',
-                                 label=ensemble_block.name+':'+str(ensemble_block.blockextra.metric))
+                                 label=ensemble_block.name+':'+str(round(ensemble_block.blockextra.metric, 4)))
                         ensemble_block_name_list.append(ensemble_block.name)
                         # 建立Ensemble Block与Miniblock的连接（去重）
                         for miniblock in ensemble_block.blockextra.miniblock_list:
@@ -571,15 +571,15 @@ class Chain(object):
                 # 建立Key Block节点
                 if blocktmp.isAdversaryBlock:
                     dot.node(blocktmp.name, shape='rect', color='red',
-                             label=blocktmp.name+':'+str(blocktmp.blockextra.metric))
+                             label=blocktmp.name+':'+str(round(blocktmp.blockextra.metric, 4)))
                 else:
                     dot.node(blocktmp.name,shape='rect',color='orange',
-                             label=blocktmp.name+':'+str(blocktmp.blockextra.metric))
+                             label=blocktmp.name+':'+str(round(blocktmp.blockextra.metric, 4)))
                 # 建立Ensemble Block节点
                 for ensemble_block in blocktmp.blockextra.ensemble_block_list:
                     if ensemble_block.name not in ensemble_block_name_list:
                         dot.node(ensemble_block.name, shape='rect', color='yellow',
-                                 label=ensemble_block.name+':'+str(ensemble_block.blockextra.metric))
+                                 label=ensemble_block.name+':'+str(round(ensemble_block.blockextra.metric, 4)))
                         ensemble_block_name_list.append(ensemble_block.name)
                         # 建立Ensemble Block与Miniblock的连接（去重）
                         for miniblock in ensemble_block.blockextra.miniblock_list:

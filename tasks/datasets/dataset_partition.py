@@ -66,16 +66,25 @@ def partition_label_distribution(beta, miner_number, label_number, y_train):
     
     return net_dataidx_map
 
-def partition_by_index(training_set, global_dataset, miner_number, data_index):
+def partition_by_index(training_set, global_dataset, capable_miner_num, total_miner_num, data_index):
     x_train, y_train = training_set
     x_global, y_global = global_dataset
     training_set_list = []
-    for i in range(miner_number):
+    for i in range(capable_miner_num):
         local_dataset = shuffle(np.concatenate((x_global, x_train[data_index[i]])),
                                 np.concatenate((y_global, y_train[data_index[i]])))
         training_set_list.append(local_dataset)
+    capable_miners = np.random.choice(range(total_miner_num),
+                                      capable_miner_num, replace=False).tolist()
+
+    miner_training_list = []
+    for i in range(total_miner_num):
+        if i in capable_miners:
+            miner_training_list.append(training_set_list[capable_miners.index(i)])
+        else:
+            miner_training_list.append(global_dataset)
         
-    return training_set_list
+    return miner_training_list
 
 def generate_global_dataset(training_set, global_ratio, miner_num, num_classes):
     '''sample a global dataset from the training set, make sure each class is included'''
