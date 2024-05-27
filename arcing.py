@@ -70,6 +70,21 @@ def bagging(n_estimators, x, y, BaseClassifier):
                                       replace=True)
         x_resampled = x[resample_index]
         y_resampled = y[resample_index]
+        labels, label_counts = np.unique(y_resampled, False, False, True)
+        # make sure each label exists in the resampled training set
+        # extract a sample with the lost label from the original training set
+        labels_original = np.unique(y)
+        if len(labels) < len(labels_original):
+            labels_to_add = np.setdiff1d(labels_original, labels)
+            # the labels with more occurrences are more likely to be deleted
+            labels_to_delete = list(labels[label_counts.argsort()])
+            for label in labels_to_add:
+                deleted_label = labels_to_delete.pop()
+                index_add = np.where(y == label)[0]
+                index = np.where(y_resampled == deleted_label)[0]
+                x_resampled[index[0]] = x[index_add[0]]
+                y_resampled[index[0]] = y[index_add[0]]
+
         estimator = BaseClassifier()
         estimators.append(estimator)
         estimator.fit(x_resampled, y_resampled)
