@@ -63,6 +63,9 @@ class Environment(object):
         self.winning_block_record = {} # {height : block.name}
         self.test_set_metric = {} # versus block height Key:Height Value:Metric
         self.validation_set_metric = {} # versus block height Key:Height Value:Metric
+        self.base_model_metric_lists = {} # versus block height Key:Height Value:(list[Metric], list[Metric])
+                                        #   test and validation list of the base models in a winning key block
+        self.dummy_consensus = for_name(global_var.get_consensus_type())(-1)
         # generate network
         self.network:network.Network = for_name(global_var.get_network_type())(self.miners)    #网络类型
         print(
@@ -241,6 +244,13 @@ class Environment(object):
                             winning_ensemble_block = ensemble_block
                             break # 匹配到就直接退出循环（不全部匹配）
                     self.test_set_metric[preblock_height] = winning_ensemble_block.blockextra.metric
+                    base_metrics_test = np.nan * np.ones(self.miner_num)
+                    base_metrics_validation = np.nan * np.ones(self.miner_num)
+                    for miniblock in winning_ensemble_block.blockextra.miniblock_list:
+                        model_id = miniblock.blockhead.miner
+                        base_metrics_test[model_id] = self.dummy_consensus.validate_evaluate_miniblock([miniblock], global_var.get_global_task(), Task.DatasetType.TEST_SET)
+                        base_metrics_validation[model_id] = self.dummy_consensus.validate_evaluate_miniblock([miniblock], global_var.get_global_task(), Task.DatasetType.VALIDATION_SET)
+                    self.base_model_metric_lists[preblock_height] = (base_metrics_test, base_metrics_validation)
 
             if last_winningblock:
                 # 从schedule中删除同一高度的数据集发布任务
@@ -424,11 +434,32 @@ class Environment(object):
                     average_test_set_metric,
                     average_validation_set_metric_list)
         self.plot_metric_against_height()
+        # average the metrics in base_metrics_list with regard to the height
+        base_metrics_test_list = np.array([test for h, (test, _) in self.base_model_metric_lists.items()])
+        base_metrics_validation_list = np.array([validation for h, (_, validation) in self.base_model_metric_lists.items()])
+        average_base_metrics_test = np.nanmean(base_metrics_test_list, axis=0) # ignore nan
+        average_base_metrics_validation = np.nanmean(base_metrics_validation_list, axis=0)
+
         result_collection = {'test_metric_average': average_test_set_metric,
                              'validation_metric_average': average_validation_set_metric_list,
                              'test_metric_list': test_set_metric_list,
                              'validation_metric_list': validation_set_metric_list,
-                             'chain_stats': stats}
+                             'chain_stats': stats,
+                             'base_model_metric_test': average_base_metrics_test.tolist(),
+                             'base_model_metric_validation': average_base_metrics_validation.tolist()}
+
+        if global_var.get_global_task().global_dataset is not None:
+            # simulate the situation where only the global model is used for model training
+            global_task = global_var.get_global_task()
+            BaseModel = global_task.model_constructor()
+            BaseModel.fit(*global_task.global_dataset)
+            def evaluate_model(model, dataset):
+                return global_task.metric_evaluator(model.predict(dataset[0]), dataset[1])
+            test_metrics_on_global_dataset = evaluate_model(BaseModel, global_task.test_set)
+            validation_metrics_on_global_dataset = evaluate_model(BaseModel, global_task.validation_set)
+            result_collection.update({'test_metric_on_global_dataset': test_metrics_on_global_dataset,
+                                      'validation_metric_on_global_dataset': validation_metrics_on_global_dataset})
+
         return result_collection
 
     def plot_metric_against_height(self):

@@ -11,9 +11,9 @@ class Task:
         TRAINING_SET = 0
         TEST_SET = 1
         VALIDATION_SET = 2
-    def __init__(self, training_set, test_set, validation_set, metric_evaluator,
-                 block_metric_requirement, model_constructor, model_params,
-                 bag_scale=0.5, fee=1):
+    def __init__(self, training_set, test_set, validation_set, global_dataset,
+                 metric_evaluator, block_metric_requirement, model_constructor,
+                 model_params, bag_scale=0.5, fee=1):
         '''
         训练集training_set：一个元组（样本矩阵，目标值），通过引用传递，内存中只保留一份
         测试集test_set：一个元组（样本矩阵，目标值），通过引用传递，内存中只保留一份
@@ -28,6 +28,7 @@ class Task:
         self.training_set = training_set
         self.test_set = test_set
         self.validation_set = validation_set
+        self.global_dataset = global_dataset
         self.metric_evaluator = metric_evaluator
         self.block_metric_requirement = block_metric_requirement
         self.model_constructor = model_constructor
@@ -101,21 +102,22 @@ def global_task_init(selection:str, noniid_conf: dict = None):
         # Load datasets
         if dataset == "MNIST":
             training_set, test_set, validation_set = mnist_loader(dataset_path)
-            block_metric = 0.35
+            block_metric = 0.1
             nn_params = {'input_channels': 1, 'image_shape': (28, 28), 'num_classes': 10,
                          'mean': [0.13251460584233693], 'std': [0.310480247930535]}
                          # 'mean': [33.791224489795916], 'std': [79.17246322228642]
         elif dataset == "CIFAR10":
             training_set, test_set, validation_set = cifar_loader(dataset_path)
-            block_metric = 0.2
+            block_metric = 1/62
             nn_params = {'input_channels': 3, 'image_shape': (32, 32), 'num_classes': 10,
                          'mean': [0.4942142800245098, 0.4851313890165441, 0.4504090927542892],
                          'std': [0.24665251509497996, 0.24289226346005366, 0.2615923780220232]}
                          #'mean': [126.02464140625, 123.70850419921875, 114.85431865234375],
                          #'std': [62.89639134921989, 61.93752718231368, 66.7060563956159]
         elif dataset == "FEMNIST":
-            training_set, test_set, validation_set = femnist_loader(dataset_path, miner_num, noniid_conf['global_ratio'])
-            block_metric = 0.2
+            training_set, test_set, validation_set, global_dataset \
+                     = femnist_loader(dataset_path, capable_miner_num, noniid_conf['global_ratio'])
+            block_metric = 0.1
             nn_params = {'input_channels': 1, 'image_shape': (28, 28), 'num_classes': 62,
                          'mean': [0.9638689148893337], 'std': [0.15864969199187845]}
         elif dataset == "SVHN":
@@ -148,6 +150,11 @@ def global_task_init(selection:str, noniid_conf: dict = None):
                 raise ValueError("Invalid non-iid data distribution type")
             training_set = partition_by_index(training_set, global_dataset, capable_miner_num,
                                               miner_num, data_index)
+        elif capable_miner_num < miner_num: # when not all miners are capable,
+                                            # replicate the global dataset for non-capable miners
+            training_set.extend([global_dataset] * (miner_num-capable_miner_num))
+            if len(training_set) != miner_num:
+                raise ValueError("The length of training set sequence is erroneous")
 
         # Load models
         if model == "DTC":
@@ -183,7 +190,8 @@ def global_task_init(selection:str, noniid_conf: dict = None):
     # 构建Task对象
     def construct_model():
         return model_constructor(nn_params)
-    task1 = Task(training_set, test_set, validation_set, metric_evaluator,
+    use_global = global_dataset if noniid_conf.get('base_global_experiment') else None
+    task1 = Task(training_set, test_set, validation_set, use_global, metric_evaluator,
                 block_metric, construct_model, nn_params, global_var.get_bag_scale())
     task1.set_client_id(0)
     global_var.set_global_task(task1)

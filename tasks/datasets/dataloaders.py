@@ -164,7 +164,7 @@ def femnist_loader(dataset_path: Path, node_num, global_ratio):
     
     train_set = [(x, y) for x, y in zip(x_train, y_train)]
 
-    return train_set, test_set, validation_set
+    return train_set, test_set, validation_set, (x_global, y_global)
 
 def svhn_loader(dataset_path: Path):
     from scipy.io import loadmat

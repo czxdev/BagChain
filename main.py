@@ -85,13 +85,13 @@ if __name__ == "__main__":
     import os
     #from affinity import set_process_affinity_mask
     #set_process_affinity_mask(os.getpid(), 1<<6)
-    MINER_NUM = 3
+    MINER_NUM = 10
     import numpy as np
     matrix = np.ones((MINER_NUM,MINER_NUM)) - np.eye(MINER_NUM)
     print(main(60000, n=MINER_NUM, blocksize=6,max_height=2,network_generator='matrix',
-         matrix=matrix, task_selection='C-SVHN-GoogLeNet',
-         noniid_conf={'type':'label_distribution', 'global_ratio':0.1, 'label_per_miner':3,
-                      'beta':0.5, 'capable_miner_num': 2}))
+         matrix=matrix, task_selection='C-MNIST-DTC',
+         noniid_conf={'type':'label_distribution', 'global_ratio':0.02, 'label_per_miner':3,
+                      'beta':0.5, 'capable_miner_num': 1, 'base_global_experiment': True}))
     
     # Task selection: A, B, C-[DATASET]-[MODEL]
     # Possible selections: A, B, C-MNIST-DTC, C-MNIST-CNN,
@@ -101,6 +101,7 @@ if __name__ == "__main__":
     # Note: DTC is not suitable for RGB images
     # noniid_conf = {'type':'label_quantity', 'global_ratio': 0.1, 'beta': 0.5,
     #                'label_per_miner': 3, 'capable_miner_num': None}
-    #               'capable_miner_num' means the number of miners that own both computing power and private dataset
+    #                'capable_miner_num' means the number of miners that own both computing power and private dataset
     #                                   If it is None, it equals to miner_num by default
+    #                'base_global_experiment' means whether to output the test set metric of a model trained on the global dataset
                     
