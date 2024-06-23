@@ -73,6 +73,7 @@ def global_task_init(selection:str, noniid_conf: dict = None):
     '''
     dataset_path = global_var.get_dataset_path()
 
+    noniid_conf = noniid_conf or {}
     global_var.set_bag_scale(1) # TODO 默认bag_scale为1把DTC的结果重跑一遍
     nn_params = {}
     if selection == "A":
@@ -89,7 +90,7 @@ def global_task_init(selection:str, noniid_conf: dict = None):
         dataset = "CIFAR10"
         metric_evaluator = for_name(global_var.get_metric_evaluator())
         model_constructor = NNClassifier
-        block_metric = 0.55
+        block_metric = 0.1
     elif selection.startswith("C-"):
         from tasks import partition_label_distribution, partition_label_quantity, partition_by_index
         selection = selection.split("-")
@@ -108,7 +109,7 @@ def global_task_init(selection:str, noniid_conf: dict = None):
                          # 'mean': [33.791224489795916], 'std': [79.17246322228642]
         elif dataset == "CIFAR10":
             training_set, test_set, validation_set = cifar_loader(dataset_path)
-            block_metric = 1/62
+            block_metric = 0.1
             nn_params = {'input_channels': 3, 'image_shape': (32, 32), 'num_classes': 10,
                          'mean': [0.4942142800245098, 0.4851313890165441, 0.4504090927542892],
                          'std': [0.24665251509497996, 0.24289226346005366, 0.2615923780220232]}
@@ -117,7 +118,7 @@ def global_task_init(selection:str, noniid_conf: dict = None):
         elif dataset == "FEMNIST":
             training_set, test_set, validation_set, global_dataset \
                      = femnist_loader(dataset_path, capable_miner_num, noniid_conf['global_ratio'])
-            block_metric = 0.1
+            block_metric = 1/62
             nn_params = {'input_channels': 1, 'image_shape': (28, 28), 'num_classes': 62,
                          'mean': [0.9638689148893337], 'std': [0.15864969199187845]}
         elif dataset == "SVHN":
