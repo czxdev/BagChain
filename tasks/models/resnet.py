@@ -1,4 +1,7 @@
-'''ResNet with PyTorch'''
+'''
+ResNet with PyTorch
+Reference: https://github.com/kuangliu/pytorch-cifar
+'''
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

@@ -625,6 +625,8 @@ class Chain(object):
                    format='svg', view=global_var.get_show_fig())
 
     def get_block_interval_distribution(self):
+        if self.lastblock.blockhead.height == 0:
+            return
         stat = []
         blocktmp2 = self.lastblock
         while not blocktmp2.isGenesis:

@@ -229,9 +229,6 @@ class Environment(object):
                     if self.handle_block(new_block, self.miners[i].Miner_ID, round) \
                         is Block.BlockType.KEY_BLOCK:
                         temp_key_block_list.append(new_block)
-                        if new_block.blockhead.height > max_height:
-                            self.total_round = self.total_round + round
-                            return
                     self.miners[i].input_tape = []  # clear the input tape
                     self.miners[i].receive_tape = []  # clear the communication tape
             last_winningblock = None
@@ -313,6 +310,10 @@ class Environment(object):
                 logger.info(f"Stashed miniblocks on height {checkpoint_height}: {stashed_miniblock_names}")
 
                 self.block_checkpoints = new_checkpoints
+
+            if self.global_chain.lastblock.BlockHeight() > max_height:
+                self.total_round = self.total_round + round
+                return
 
             # 错误检查，如果超过一定轮数没有新区块或miniblock，可能是系统出现未知错误
             network_idle_counter += 1 # 没有新的block，闲置轮数+1

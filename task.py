@@ -70,6 +70,10 @@ def model_importer(model_name):
             from tasks.models import GoogLeNet as NN
         elif model_name == "ResNet18":
             from tasks.models import ResNet18 as NN
+        elif model_name == "MobileNetV2":
+            from tasks.models import MobileNetV2 as NN
+        elif model_name == "DenseNet":
+            from tasks.models import DenseNet121_12 as NN
         else:
             raise ValueError("MODEL match none of the following: DTC, CNN, GoogLeNet, ResNet18")
         from tasks.models import NNClassifier
