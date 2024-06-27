@@ -100,6 +100,16 @@ def cifar_loader(dataset_path: Path):
 
     return (training_set, test_set, validation_set)
 
+def merge_data_by_user(data, users):
+    x = []
+    y = []
+    for user in users:
+        x.extend(np.array(data[user]['x']))
+        y.extend(np.array(data[user]['y']))
+    x = np.array(x)
+    y = np.array(y)
+    return shuffle(x, y)
+
 def femnist_loader(dataset_path: Path, node_num, global_ratio):
     '''node_num: the number of nodes in the FL network
        global_ratio: the ratio of global data in the training set assigned to each node'''
@@ -111,14 +121,7 @@ def femnist_loader(dataset_path: Path, node_num, global_ratio):
         test_data = json.load(f)
 
     # merge all the data in test data into a test set
-    x_test = []
-    y_test = []
-    for user in test_data['users']:
-        x_test.extend(test_data['user_data'][user]['x'])
-        y_test.extend(test_data['user_data'][user]['y'])
-    x_test = np.array(x_test)
-    y_test = np.array(y_test)
-    x_test, y_test = shuffle(x_test, y_test)
+    x_test, y_test = merge_data_by_user(test_data['user_data'], test_data['users'])
     test_sample_size = x_test.shape[0]//2
     test_set = (x_test[:test_sample_size], y_test[:test_sample_size])
     validation_set = (x_test[test_sample_size:], y_test[test_sample_size:])
@@ -130,13 +133,7 @@ def femnist_loader(dataset_path: Path, node_num, global_ratio):
     # generate a split of users
     user_split = [train_data['users'][i::node_num] for i in range(node_num)]
     for users in user_split:
-        x_train_user = []
-        y_train_user = []
-
-        for user in users:
-            x_train_user.extend(train_data['user_data'][user]['x'])
-            y_train_user.extend(train_data['user_data'][user]['y'])
-        x_train_user, y_train_user = shuffle(np.array(x_train_user), np.array(y_train_user))
+        x_train_user, y_train_user = merge_data_by_user(train_data['user_data'], users)
         x_train.append(x_train_user)
         y_train.append(y_train_user)
 
@@ -181,6 +178,20 @@ def femnist_loader(dataset_path: Path, node_num, global_ratio):
     train_set = [(x, y) for x, y in zip(x_train, y_train)]
 
     return train_set, test_set, validation_set, (x_global, y_global)
+
+def femnist_loader_iid(dataset_path: Path):
+    dataset_path = dataset_path / 'femnist' / 'sf0-1_dataset'
+    with open(next(dataset_path.glob('./train/*.json')), 'r') as f:
+        train_data = json.load(f)
+    with open(next(dataset_path.glob('./test/*.json')), 'r') as f:
+        test_data = json.load(f)
+
+    x_train, y_train = merge_data_by_user(train_data['user_data'], train_data['users'])
+    x_test, y_test = merge_data_by_user(test_data['user_data'], test_data['users'])
+    test_sample_size = x_test.shape[0]//2
+    test_set = (x_test[:test_sample_size], y_test[:test_sample_size])
+    validation_set = (x_test[test_sample_size:], y_test[test_sample_size:])
+    return (x_train, y_train), test_set, validation_set
 
 def svhn_loader(dataset_path: Path):
     from scipy.io import loadmat

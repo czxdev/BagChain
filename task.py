@@ -1,6 +1,6 @@
 '''实现Task类'''
 from enum import Enum
-from tasks import cifar_loader, mnist_loader, femnist_loader, svhn_loader
+from tasks import cifar_loader, mnist_loader, femnist_loader, svhn_loader, femnist_loader_iid
 import global_var
 from functions import for_name
 
@@ -58,6 +58,23 @@ class Task:
         else:
             raise ValueError("Invalid dataset type")
 
+def model_importer(model_name):
+    '''根据模型名导入模型'''
+    if model_name == "DTC":
+        from sklearn.tree import DecisionTreeClassifier
+        return DecisionTreeClassifier
+    else:
+        if model_name == "CNN":
+            from tasks.models import SimpleCNN as NN
+        elif model_name == "GoogLeNet":
+            from tasks.models import GoogLeNet as NN
+        elif model_name == "ResNet18":
+            from tasks.models import ResNet18 as NN
+        else:
+            raise ValueError("MODEL match none of the following: DTC, CNN, GoogLeNet, ResNet18")
+        from tasks.models import NNClassifier
+        NNClassifier.NN_MODEL = NN
+    return NNClassifier
 
 def global_task_init(selection:str, noniid_conf: dict = None):
     '''
@@ -76,21 +93,64 @@ def global_task_init(selection:str, noniid_conf: dict = None):
     noniid_conf = noniid_conf or {}
     global_var.set_bag_scale(1) # TODO 默认bag_scale为1把DTC的结果重跑一遍
     nn_params = {}
-    if selection == "A":
-        training_set, test_set, validation_set = mnist_loader(dataset_path)
+    if selection.startswith("A-") or selection == "A":# DTC iid
+        selection = selection.split("-")
+        if selection == "A" or selection[1] == "MNIST":
+            training_set, test_set, validation_set = mnist_loader(dataset_path)
+            dataset = "MNIST"
+            block_metric = 0.8
+        elif selection[1] == "FEMNIST":
+            training_set, test_set, validation_set, global_dataset \
+                     = femnist_loader(dataset_path, global_var.get_miner_num(), 1.0)
+            dataset = "FEMNIST"
+            block_metric = 1/62
+        else:
+            raise ValueError("Don't use DTC with RGB images, use CNN instead, or the performance shall be terrible")
+
         metric_evaluator = for_name(global_var.get_metric_evaluator())
         model_constructor = for_name("sklearn.tree.DecisionTreeClassifier")
         model = "DTC"
-        dataset = "MNIST"
-        block_metric = 0.8
-    elif selection == "B":
-        training_set, test_set, validation_set = cifar_loader(dataset_path)
-        from tasks.models import NNClassifier
-        model = "GoogLeNet"
-        dataset = "CIFAR10"
-        metric_evaluator = for_name(global_var.get_metric_evaluator())
-        model_constructor = NNClassifier
-        block_metric = 0.1
+        
+    elif selection.startswith("B-") or selection == "B": # NNClassifier iid
+        selection = selection.split("-")
+        if len(selection) == 2 or len(selection) > 3:
+            raise ValueError("Selection of task is invalid")
+        if selection[2] == "DTC":
+            raise ValueError("To use DTC, selection = A")
+        if selection == "B":
+            training_set, test_set, validation_set = cifar_loader(dataset_path)
+            dataset = "CIFAR10"
+            model = "ResNet18"
+        else:
+            dataset = selection[1]
+            model = selection[2]
+            if dataset == "MNIST":
+                training_set, test_set, validation_set = mnist_loader(dataset_path)
+                block_metric = 0.1
+                nn_params = {'input_channels': 1, 'image_shape': (28, 28), 'num_classes': 10,
+                            'mean': [0.13251460584233693], 'std': [0.310480247930535]}
+
+            elif dataset == "CIFAR10":
+                training_set, test_set, validation_set = cifar_loader(dataset_path)
+                block_metric = 0.1
+                nn_params = {'input_channels': 3, 'image_shape': (32, 32), 'num_classes': 10,
+                            'mean': [0.4942142800245098, 0.4851313890165441, 0.4504090927542892],
+                            'std': [0.24665251509497996, 0.24289226346005366, 0.2615923780220232]}
+            elif dataset == "FEMNIST":
+                training_set, test_set, validation_set = femnist_loader_iid(dataset_path)
+                block_metric = 1/62
+                nn_params = {'input_channels': 1, 'image_shape': (28, 28), 'num_classes': 62,
+                            'mean': [0.9638689148893337], 'std': [0.15864969199187845]}
+            elif dataset == "SVHN":
+                training_set, test_set, validation_set = svhn_loader(dataset_path)
+                block_metric = 0.1
+                nn_params = {'input_channels': 3, 'image_shape': (32, 32), 'num_classes': 10,
+                            'mean': [0.4524231572700963, 0.4524958429274829, 0.4689771312228746],
+                            'std': [0.21943445421025629, 0.22656966836656006, 0.228506126737217]}
+            else:
+                raise ValueError("DATASET match none of the following: MNIST, CIFAR10, FEMNIST, SVHN")
+        model_constructor = model_importer(model)
+
     elif selection.startswith("C-"):
         from tasks import partition_label_distribution, partition_label_quantity, partition_by_index
         selection = selection.split("-")
@@ -157,25 +217,9 @@ def global_task_init(selection:str, noniid_conf: dict = None):
             if len(training_set) != miner_num:
                 raise ValueError("The length of training set sequence is erroneous")
 
-        # Load models
-        if model == "DTC":
-            metric_evaluator = for_name(global_var.get_metric_evaluator())
-            model_constructor = for_name("sklearn.tree.DecisionTreeClassifier")
-        else:
-            from tasks.models import NNClassifier
-            metric_evaluator = for_name(global_var.get_metric_evaluator())
-            model_constructor = NNClassifier
-            if model == "CNN":
-                from tasks.models import SimpleCNN
-                NNClassifier.NN_MODEL = SimpleCNN
-            elif model == "GoogLeNet":
-                from tasks.models import GoogLeNet
-                NNClassifier.NN_MODEL = GoogLeNet
-            elif model == "ResNet18":
-                from tasks.models import ResNet18
-                NNClassifier.NN_MODEL = ResNet18
-            else:
-                raise ValueError("MODEL match none of the following: DTC, CNN, GoogLeNet, ResNet18")
+        # Load models and metric evaluators
+        metric_evaluator = for_name(global_var.get_metric_evaluator())
+        model_constructor = model_importer(model)
 
     else:
         raise ValueError("Selection of task is invalid")

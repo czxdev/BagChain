@@ -93,7 +93,7 @@ if __name__ == "__main__":
          noniid_conf={'type':'label_distribution', 'global_ratio':0.02, 'label_per_miner':3,
                       'beta':0.5, 'capable_miner_num': 1, 'base_global_experiment': True}))
     
-    # Task selection: A, B, C-[DATASET]-[MODEL]
+    # Task selection: A-[DATASET], B-[DATASET]-[MODEL], C-[DATASET]-[MODEL]
     # Possible selections: A, B, C-MNIST-DTC, C-MNIST-CNN,
     #                            C-CIFAR10-CNN, C-CIFAR10-GoogLeNet, C-CIFAR10-ResNet18,
     #                            C-FEMNIST-DTC, C-FEMNIST-CNN, C-FEMNIST-GoogLeNet, C-FEMNIST-ResNet18,
