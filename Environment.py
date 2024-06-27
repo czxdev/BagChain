@@ -22,6 +22,8 @@ from Attack import Selfmining
 from functions import for_name
 from external import common_prefix, chain_quality, chain_growth, printchain2txt
 from task import Task
+from tasks.models import NNClassifier
+
 logger = logging.getLogger(__name__)
 
 def get_time(f):
@@ -33,6 +35,16 @@ def get_time(f):
         print('耗时：{}秒'.format(e_time - s_time))
         return res
     return inner
+
+def stash_models(miniblock:Block):
+    '''stash the NN models to RAM in the referenced Miniblocks'''
+    if isinstance(miniblock.blockextra.model, list) and \
+        len(miniblock.blockextra.model) > 0 and \
+        isinstance(miniblock.blockextra.model[0], NNClassifier):
+        for model in miniblock.blockextra.model:
+            model.net.cpu()
+    elif isinstance(miniblock.blockextra.model, NNClassifier):
+        miniblock.blockextra.model.net.cpu()
 
 class Environment(object):
 
@@ -83,6 +95,7 @@ class Environment(object):
         self.selfblock = []
         self.max_suffix = 10
         self.cp_pdf = np.zeros((1, self.max_suffix)) # 每轮结束时，各个矿工的链与common prefix相差区块个数的分布
+        self.block_checkpoints = [self.global_chain.lastblock]
 
     def schedule_initial_tasks(self):
         '''初始化计划任务队列schedule'''
@@ -283,6 +296,23 @@ class Environment(object):
                     dataset_info[0].name, *dataset_info[1:4], round)
                     self.dataset_publish_history.append(dataset_info)
             self.schedule = new_schedule
+
+            # 四个区块高度之后，查找Key Block中的MiniBlock并将模型移动到RAM中节省VRAM
+            checkpoint_height = self.block_checkpoints[0].blockhead.height
+            if self.global_chain.lastblock.blockhead.height - checkpoint_height >= 4:
+                new_checkpoints = []
+                for block in self.block_checkpoints:
+                    new_checkpoints.extend(block.next)
+                stashed_miniblock_names = []
+                for miniblock in self.global_miniblock_list:
+                    if miniblock.blockhead.height > checkpoint_height + 1:
+                        break
+                    if miniblock.blockhead.height == checkpoint_height:
+                        stash_models(miniblock)
+                        stashed_miniblock_names.append(miniblock.name)
+                logger.info(f"Stashed miniblocks on height {checkpoint_height}: {stashed_miniblock_names}")
+
+                self.block_checkpoints = new_checkpoints
 
             # 错误检查，如果超过一定轮数没有新区块或miniblock，可能是系统出现未知错误
             network_idle_counter += 1 # 没有新的block，闲置轮数+1
