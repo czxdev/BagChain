@@ -150,6 +150,7 @@ def global_task_init(selection:str, noniid_conf: dict = None):
             else:
                 raise ValueError("DATASET match none of the following: MNIST, CIFAR10, FEMNIST, SVHN")
         model_constructor = model_importer(model)
+        metric_evaluator = for_name(global_var.get_metric_evaluator())
 
     elif selection.startswith("C-"):
         from tasks import partition_label_distribution, partition_label_quantity, partition_by_index
