@@ -102,7 +102,7 @@ def cifar_loader(dataset_path: Path):
 
 def femnist_loader(dataset_path: Path, node_num, global_ratio):
     '''node_num: the number of nodes in the FL network
-       global_ratio: the ratio of global data in the training set'''
+       global_ratio: the ratio of global data in the training set assigned to each node'''
     # train/test data should be contained in one single json file as the train/test split mode is by user
     dataset_path = dataset_path / 'femnist' / 'sf0-1_dataset'
     with open(next(dataset_path.glob('./train/*.json')), 'r') as f:
@@ -156,6 +156,22 @@ def femnist_loader(dataset_path: Path, node_num, global_ratio):
         y_train[node] = y_train[node][global_data_size//node_num:] # exclude public data
 
     x_global, y_global = np.concatenate(x_global, axis=0), np.concatenate(y_global, axis=0)
+    
+    # pick some data samples to compensate the global data and make sure each category is contained in the global dataset
+    num_classes = len(np.unique(y_test))
+    labels = np.unique(y_global)
+    node_ptr = 0
+    if len(labels) < num_classes:
+        for label in range(num_classes):
+            if label not in labels:
+                while len(idx := np.where(y_train[node_ptr] == label)[0]) == 0:
+                    node_ptr = (node_ptr + 1) % node_num
+                # add one sample of the missing class
+                x_global = np.concatenate((x_global, x_train[node_ptr][idx[:1]]))
+                y_global = np.concatenate((y_global, y_train[node_ptr][idx[:1]]))
+                x_train[node_ptr] = np.delete(x_train[node_ptr], idx[:1], axis=0)
+                y_train[node_ptr] = np.delete(y_train[node_ptr], idx[:1], axis=0)
+                node_ptr = (node_ptr + 1) % node_num
     
     for node in range(node_num):
         x_train[node] = np.concatenate([x_train[node], x_global], axis=0)
