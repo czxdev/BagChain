@@ -190,7 +190,10 @@ def global_task_init(selection:str, noniid_conf: dict = None):
         validation_set = datasetloader_preload(validation_set, nn_params)
     # 构建Task对象
     def construct_model():
-        return model_constructor(nn_params)
+        if model == "DTC":
+            return model_constructor()
+        else:
+            return model_constructor(nn_params)
     use_global = global_dataset if noniid_conf.get('base_global_experiment') else None
     task1 = Task(training_set, test_set, validation_set, use_global, metric_evaluator,
                 block_metric, construct_model, nn_params, global_var.get_bag_scale())

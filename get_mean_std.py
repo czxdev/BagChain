@@ -1,4 +1,4 @@
-'''A utility function to get the mean and standard deviation of each dataset.'''
+'''A utility function to get the mean and standard deviation of the test set of each dataset.'''
 from tasks import *
 from pathlib import Path
 import numpy as np

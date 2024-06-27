@@ -6,7 +6,7 @@ from main import main
 
 def single_process(result_path,miner_num):    
     total_rounds = 150 # 510
-    main(total_rounds, miner_num, blocksize=2,
+    main(total_rounds, n=miner_num, blocksize=2,
         result_path=result_path/f"miner_num_{miner_num}")
 
 if __name__ == "__main__":
