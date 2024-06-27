@@ -160,10 +160,7 @@ def global_task_init(selection:str, noniid_conf: dict = None):
         # Load models
         if model == "DTC":
             metric_evaluator = for_name(global_var.get_metric_evaluator())
-            from sklearn.tree import DecisionTreeClassifier
-            def DTC(nn_params):
-                return DecisionTreeClassifier()
-            model_constructor = DTC
+            model_constructor = for_name("sklearn.tree.DecisionTreeClassifier")
         else:
             from tasks.models import NNClassifier
             metric_evaluator = for_name(global_var.get_metric_evaluator())
