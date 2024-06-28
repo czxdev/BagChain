@@ -99,11 +99,13 @@ def global_task_init(selection:str, noniid_conf: dict = None):
     nn_params = {}
     if selection.startswith("A-") or selection == "A":# DTC iid
         selection = selection.split("-")
-        if selection == "A" or selection[1] == "MNIST":
+        if len(selection) > 2:
+            raise ValueError("Selection of task is invalid")
+        if len(selection) == 1 or len(selection) == 2 and selection[1] == "MNIST":
             training_set, test_set, validation_set = mnist_loader(dataset_path)
             dataset = "MNIST"
             block_metric = 0.8
-        elif selection[1] == "FEMNIST":
+        elif len(selection) == 2 and selection[1] == "FEMNIST":
             training_set, test_set, validation_set, global_dataset \
                      = femnist_loader(dataset_path, global_var.get_miner_num(), 1.0)
             dataset = "FEMNIST"
@@ -119,15 +121,16 @@ def global_task_init(selection:str, noniid_conf: dict = None):
         selection = selection.split("-")
         if len(selection) == 2 or len(selection) > 3:
             raise ValueError("Selection of task is invalid")
-        if selection[2] == "DTC":
-            raise ValueError("To use DTC, selection = A")
-        if selection == "B":
+        if len(selection) == 1:
             training_set, test_set, validation_set = cifar_loader(dataset_path)
             dataset = "CIFAR10"
             model = "ResNet18"
-        else:
+            block_metric = 0.1
+        elif len(selection) == 3:
             dataset = selection[1]
             model = selection[2]
+            if model == "DTC":
+                raise ValueError("To use DTC, selection = A")
             if dataset == "MNIST":
                 training_set, test_set, validation_set = mnist_loader(dataset_path)
                 block_metric = 0.1
@@ -153,6 +156,8 @@ def global_task_init(selection:str, noniid_conf: dict = None):
                             'std': [0.21943445421025629, 0.22656966836656006, 0.228506126737217]}
             else:
                 raise ValueError("DATASET match none of the following: MNIST, CIFAR10, FEMNIST, SVHN")
+        else:
+            raise ValueError("Selection of task is invalid")
         model_constructor = model_importer(model)
         metric_evaluator = for_name(global_var.get_metric_evaluator())
 
