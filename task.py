@@ -95,7 +95,7 @@ def global_task_init(selection:str, noniid_conf: dict = None, epoch: int = 10):
     dataset_path = global_var.get_dataset_path()
 
     noniid_conf = noniid_conf or {}
-    global_var.set_bag_scale(1) # TODO 默认bag_scale为1把DTC的结果重跑一遍
+    global_var.set_bag_scale(1)
     nn_params = {}
     if selection.startswith("A-") or selection == "A":# DTC iid
         selection = selection.split("-")
@@ -170,6 +170,11 @@ def global_task_init(selection:str, noniid_conf: dict = None, epoch: int = 10):
         model = selection[2]
         miner_num = global_var.get_miner_num()
         capable_miner_num = noniid_conf.get('capable_miner_num') or miner_num
+        partition_num = noniid_conf.get('partition_num') or capable_miner_num
+        if partition_num < miner_num:
+            raise ValueError(f"partition_num: {partition_num} < miner_num: {miner_num}")
+        if miner_num < capable_miner_num:
+            raise ValueError(f"miner_num: {miner_num} < capable_miner_num: {capable_miner_num}")
         # Load datasets
         if dataset == "MNIST":
             training_set, test_set, validation_set = mnist_loader(dataset_path)
@@ -187,7 +192,8 @@ def global_task_init(selection:str, noniid_conf: dict = None, epoch: int = 10):
                          #'std': [62.89639134921989, 61.93752718231368, 66.7060563956159]
         elif dataset == "FEMNIST":
             training_set, test_set, validation_set, global_dataset \
-                     = femnist_loader(dataset_path, capable_miner_num, noniid_conf['global_ratio'])
+                     = femnist_loader(dataset_path, partition_num, noniid_conf['global_ratio'])
+            training_set = training_set[:capable_miner_num] # Only use the first capable_miner_num partitions
             block_metric = 1/62
             nn_params = {'input_channels': 1, 'image_shape': (28, 28), 'num_classes': 62,
                          'mean': [0.9638689148893337], 'std': [0.15864969199187845]}
@@ -208,14 +214,14 @@ def global_task_init(selection:str, noniid_conf: dict = None, epoch: int = 10):
             # global_ratio: the ratio of global sample counts over the total sample count at each node
             from tasks import generate_global_dataset
             global_dataset, training_set = generate_global_dataset(training_set, noniid_conf['global_ratio'],
-                                                                   miner_num, nn_params['num_classes'])
+                                                                   partition_num, nn_params['num_classes'])
             y_train = training_set[1]
             
             if noniid_conf['type'] == "label_quantity":
-                data_index = partition_label_quantity(noniid_conf['label_per_miner'], capable_miner_num, 
+                data_index = partition_label_quantity(noniid_conf['label_per_miner'], partition_num, 
                                                       nn_params['num_classes'], y_train)
             elif noniid_conf['type'] == "label_distribution":
-                data_index = partition_label_distribution(noniid_conf['beta'], capable_miner_num, 
+                data_index = partition_label_distribution(noniid_conf['beta'], partition_num, 
                                                           nn_params['num_classes'], y_train)
             else:
                 raise ValueError("Invalid non-iid data distribution type")

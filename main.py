@@ -92,7 +92,8 @@ if __name__ == "__main__":
     print(main(60000, n=MINER_NUM, blocksize=6,max_height=2,network_generator='matrix',
          matrix=matrix, task_selection='C-FEMNIST-DTC',
          noniid_conf={'type':'label_distribution', 'global_ratio':0.02, 'label_per_miner':3,
-                      'beta':0.5, 'capable_miner_num': 3, 'base_global_experiment': False}))
+                      'beta':0.5, 'capable_miner_num': 3, 'partition_num': 15,
+                      'base_global_experiment': False}))
     
     # Task selection: A-[DATASET], B-[DATASET]-[MODEL], C-[DATASET]-[MODEL]
     # Possible selections: A, B, C-MNIST-DTC, C-MNIST-CNN,
@@ -104,5 +105,6 @@ if __name__ == "__main__":
     #                'label_per_miner': 3, 'capable_miner_num': None}
     #                'capable_miner_num' means the number of miners that own both computing power and private dataset
     #                                   If it is None, it equals to miner_num by default
+    #                'partition_num' means averagely (p-pg)/(p(p-pg+g)) of the training dataset samples resides in each partition
     #                'base_global_experiment' means whether to output the test set metric of a model trained on the global dataset
                     

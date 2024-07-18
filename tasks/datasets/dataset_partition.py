@@ -4,18 +4,18 @@ import numpy as np
 import random
 from tasks import shuffle
 
-def partition_label_quantity(label_per_miner, miner_number, label_number, y_train):
+def partition_label_quantity(label_per_miner, partition_num, label_number, y_train):
     contain=[]
     # 初始化 times 为全零列表
     times = [0 for _ in range(label_number)]
 
     # 对每个参与方，随机选择 label_per_miner 个不重复的标签
-    for i in range(miner_number):
+    for i in range(partition_num):
         current = random.sample(range(label_number), label_per_miner)
         for label in current:
             times[label] += 1
         contain.append(current)
-    net_dataidx_map = {i:np.ndarray(0,dtype=np.int64) for i in range(miner_number)}
+    net_dataidx_map = {i:np.ndarray(0,dtype=np.int64) for i in range(partition_num)}
     for i in range(label_number):
         if times[i]==0:
             continue
@@ -23,15 +23,15 @@ def partition_label_quantity(label_per_miner, miner_number, label_number, y_trai
         np.random.shuffle(idx_k)
         split = np.array_split(idx_k,times[i])
         ids=0
-        for j in range(miner_number):
+        for j in range(partition_num):
             if i in contain[j]:
                 net_dataidx_map[j]=np.append(net_dataidx_map[j],split[ids])
                 ids+=1
-    for i in range(miner_number):
+    for i in range(partition_num):
         net_dataidx_map[i] = net_dataidx_map[i].tolist()
     return net_dataidx_map
 
-def partition_label_distribution(beta, miner_number, label_number, y_train):
+def partition_label_distribution(beta, partition_num, label_number, y_train):
     min_size = 0
     min_require_size = 10
 
@@ -39,15 +39,15 @@ def partition_label_distribution(beta, miner_number, label_number, y_train):
     net_dataidx_map = {}
 
     while min_size < min_require_size:
-        idx_batch = [[] for _ in range(miner_number)]
+        idx_batch = [[] for _ in range(partition_num)]
         for k in range(label_number):
             idx_k = np.where(y_train == k)[0]
             np.random.shuffle(idx_k)
-            proportions = np.random.dirichlet(np.repeat(beta, miner_number))
+            proportions = np.random.dirichlet(np.repeat(beta, partition_num))
             # logger.info("proportions1: ", proportions)
             # logger.info("sum pro1:", np.sum(proportions))
             ## Balance
-            proportions = np.array([p * (len(idx_j) < N / miner_number) for p, idx_j in zip(proportions, idx_batch)])
+            proportions = np.array([p * (len(idx_j) < N / partition_num) for p, idx_j in zip(proportions, idx_batch)])
             # logger.info("proportions2: ", proportions)
             proportions = proportions / proportions.sum()
             # logger.info("proportions3: ", proportions)
@@ -60,7 +60,7 @@ def partition_label_distribution(beta, miner_number, label_number, y_train):
             #         min_size = 0
             #         break
 
-    for j in range(miner_number):
+    for j in range(partition_num):
         np.random.shuffle(idx_batch[j])
         net_dataidx_map[j] = idx_batch[j]
     
@@ -86,11 +86,11 @@ def partition_by_index(training_set, global_dataset, capable_miner_num, total_mi
         
     return miner_training_list
 
-def generate_global_dataset(training_set, global_ratio, miner_num, num_classes):
+def generate_global_dataset(training_set, global_ratio, partition_num, num_classes):
     '''sample a global dataset from the training set, make sure each class is included'''
     x_train, y_train = training_set
     training_set_size = y_train.shape[0]
-    global_dataset_size = int(global_ratio * training_set_size / (miner_num - global_ratio*miner_num + global_ratio))
+    global_dataset_size = int(global_ratio * training_set_size / (partition_num - global_ratio*partition_num + global_ratio))
     x_train, y_train = shuffle(x_train, y_train)
     x_global = x_train[:global_dataset_size]
     y_global = y_train[:global_dataset_size]
