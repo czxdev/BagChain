@@ -38,7 +38,7 @@ def __init__(result_path = None):
     _var_dict['MODEL_TYPE'] = 'sklearn.tree.DecisionTreeClassifier'
     _var_dict['METRIC_EVALUTOR'] = 'sklearn.metrics.accuracy_score'
     _var_dict['BLOCK_METRIC_REQUIREMENT'] = 0.91
-    _var_dict['ARCING_ROUND'] = 3
+    _var_dict['ARCING_ROUND'] = 1
     # 系统参数
     _var_dict['TEST_SET_INTERVAL'] = 90
     _var_dict['VALIDATION_SET_INTERVAL'] = 180

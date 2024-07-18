@@ -80,7 +80,7 @@ def model_importer(model_name):
         NNClassifier.NN_MODEL = NN
     return NNClassifier
 
-def global_task_init(selection:str, noniid_conf: dict = None):
+def global_task_init(selection:str, noniid_conf: dict = None, epoch: int = 10):
     '''
         为Task获取数据集、性能评估函数与模型
         selection=A: MNIST + Decision Tree Classifier As base model
@@ -234,11 +234,13 @@ def global_task_init(selection:str, noniid_conf: dict = None):
     else:
         raise ValueError("Selection of task is invalid")
 
-    if model != "DTC":
+    if model != "DTC": # NNClassifier
         # Preload the test and validation dataset into DataLoader
         from tasks.datasets.dataloaders import datasetloader_preload
         test_set = datasetloader_preload(test_set, nn_params)
         validation_set = datasetloader_preload(validation_set, nn_params)
+        # set epoch
+        model_constructor.EPOCH = epoch
     # 构建Task对象
     def construct_model():
         if model == "DTC":

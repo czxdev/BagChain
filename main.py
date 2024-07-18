@@ -48,7 +48,8 @@ def main(
     network_generator = "coo",
     matrix = None,
     task_selection = "A",
-    noniid_conf = None):
+    noniid_conf = None,
+    epoch = 10):
 
     global_var_init(n, q, blocksize, miniblock_size, result_path)
     global_var.set_PoW_target(target)
@@ -56,7 +57,7 @@ def main(
     global_var.set_validation_set_interval(validation_set_interval)
     global_var.set_log_level(logging.INFO)
     global_var.save_configuration()
-    global_task_init(task_selection, noniid_conf=noniid_conf)
+    global_task_init(task_selection, noniid_conf=noniid_conf, epoch=epoch)
 
     # 配置日志文件
     logging.basicConfig(filename=global_var.get_result_path() / 'events.log',
@@ -89,9 +90,9 @@ if __name__ == "__main__":
     import numpy as np
     matrix = np.ones((MINER_NUM,MINER_NUM)) - np.eye(MINER_NUM)
     print(main(60000, n=MINER_NUM, blocksize=6,max_height=2,network_generator='matrix',
-         matrix=matrix, task_selection='C-MNIST-DTC',
+         matrix=matrix, task_selection='C-FEMNIST-DTC',
          noniid_conf={'type':'label_distribution', 'global_ratio':0.02, 'label_per_miner':3,
-                      'beta':0.5, 'capable_miner_num': 1, 'base_global_experiment': True}))
+                      'beta':0.5, 'capable_miner_num': 3, 'base_global_experiment': False}))
     
     # Task selection: A-[DATASET], B-[DATASET]-[MODEL], C-[DATASET]-[MODEL]
     # Possible selections: A, B, C-MNIST-DTC, C-MNIST-CNN,
