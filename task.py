@@ -4,6 +4,11 @@ from tasks import cifar_loader, mnist_loader, femnist_loader, svhn_loader, femni
 import global_var
 from functions import for_name
 
+import logging
+import random
+
+logger = logging.getLogger(__name__)
+
 class Task:
     '''Task是描述机器学习任务的数据结构'''
     class DatasetType(Enum):
@@ -79,6 +84,15 @@ def model_importer(model_name):
         from tasks.models import NNClassifier
         NNClassifier.NN_MODEL = NN
     return NNClassifier
+
+def extend_training_set_sequence(training_set:list, miner_num:int):
+    '''扩展训练集序列，使其长度等于矿工数量'''
+    if len(training_set) < miner_num:
+        while len(training_set) < miner_num:
+            replicate = training_set.copy()
+            random.shuffle(replicate)
+            training_set.extend(replicate)
+    return training_set[:miner_num]
 
 def global_task_init(selection:str, noniid_conf: dict = None, epoch: int = 10):
     '''
@@ -172,7 +186,8 @@ def global_task_init(selection:str, noniid_conf: dict = None, epoch: int = 10):
         capable_miner_num = noniid_conf.get('capable_miner_num') or miner_num
         partition_num = noniid_conf.get('partition_num') or capable_miner_num
         if partition_num < miner_num:
-            raise ValueError(f"partition_num: {partition_num} < miner_num: {miner_num}")
+            logger.warning(f"partition_num: {partition_num} < miner_num: {miner_num}, \
+                            will reuse some of the partitions")
         if miner_num < capable_miner_num:
             raise ValueError(f"miner_num: {miner_num} < capable_miner_num: {capable_miner_num}")
         # Load datasets
@@ -193,7 +208,7 @@ def global_task_init(selection:str, noniid_conf: dict = None, epoch: int = 10):
         elif dataset == "FEMNIST":
             training_set, test_set, validation_set, global_dataset \
                      = femnist_loader(dataset_path, partition_num, noniid_conf['global_ratio'])
-            training_set = training_set[:capable_miner_num] # Only use the first capable_miner_num partitions
+            training_set = extend_training_set_sequence(training_set, miner_num)
             block_metric = 1/62
             nn_params = {'input_channels': 1, 'image_shape': (28, 28), 'num_classes': 62,
                          'mean': [0.9638689148893337], 'std': [0.15864969199187845]}
@@ -207,7 +222,7 @@ def global_task_init(selection:str, noniid_conf: dict = None, epoch: int = 10):
                          #'std': [55.95578582361535, 57.77526543347282, 58.26906231799034]
         else:
             raise ValueError("DATASET match none of the following: MNIST, CIFAR10, FEMNIST, SVHN")
-        
+
         # Split datasets into non-iid datasets
         if dataset != "FEMNIST": # Not needed for FEMNIST
             # Generate a global dataset
@@ -225,10 +240,12 @@ def global_task_init(selection:str, noniid_conf: dict = None, epoch: int = 10):
                                                           nn_params['num_classes'], y_train)
             else:
                 raise ValueError("Invalid non-iid data distribution type")
+            data_index = extend_training_set_sequence(data_index, miner_num)
             training_set = partition_by_index(training_set, global_dataset, capable_miner_num,
                                               miner_num, data_index)
         elif capable_miner_num < miner_num: # when not all miners are capable,
                                             # replicate the global dataset for non-capable miners
+            training_set = training_set[:capable_miner_num] # Only use the first capable_miner_num partitions
             training_set.extend([global_dataset] * (miner_num-capable_miner_num))
             if len(training_set) != miner_num:
                 raise ValueError("The length of training set sequence is erroneous")
@@ -263,4 +280,6 @@ def global_task_init(selection:str, noniid_conf: dict = None, epoch: int = 10):
                 "Model: " + model + "\n" + "Dataset: " + dataset + "\n" + \
                 "Non-iid Configuration: " + str(noniid_conf) + "\n" + \
                 "Bag Scale: " + str(global_var.get_bag_scale()) + "\n" + \
-                "Block Metric Requirement: " + str(block_metric) + "\n")
+                "Block Metric Requirement: " + str(block_metric) + "\n" + \
+                "Epoch: " + str(epoch) + "\n" + \
+                "Miner Num: " + str(global_var.get_miner_num()) + "\n")

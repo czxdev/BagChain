@@ -13,6 +13,8 @@
 /miscellaneous/*
 /block/
 /pyproject.toml
+experiment*
+executor.py
 
 **/__pycache__
 

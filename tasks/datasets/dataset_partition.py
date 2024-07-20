@@ -15,7 +15,7 @@ def partition_label_quantity(label_per_miner, partition_num, label_number, y_tra
         for label in current:
             times[label] += 1
         contain.append(current)
-    net_dataidx_map = {i:np.ndarray(0,dtype=np.int64) for i in range(partition_num)}
+    dataidx = [np.ndarray(0,dtype=np.int64) for _ in range(partition_num)]
     for i in range(label_number):
         if times[i]==0:
             continue
@@ -25,18 +25,18 @@ def partition_label_quantity(label_per_miner, partition_num, label_number, y_tra
         ids=0
         for j in range(partition_num):
             if i in contain[j]:
-                net_dataidx_map[j]=np.append(net_dataidx_map[j],split[ids])
+                dataidx[j]=np.append(dataidx[j],split[ids])
                 ids+=1
     for i in range(partition_num):
-        net_dataidx_map[i] = net_dataidx_map[i].tolist()
-    return net_dataidx_map
+        dataidx[i] = dataidx[i].tolist()
+    return dataidx
 
 def partition_label_distribution(beta, partition_num, label_number, y_train):
     min_size = 0
     min_require_size = 10
 
     N = y_train.shape[0]
-    net_dataidx_map = {}
+    dataidx = [[] for _ in range(partition_num)]
 
     while min_size < min_require_size:
         idx_batch = [[] for _ in range(partition_num)]
@@ -62,9 +62,9 @@ def partition_label_distribution(beta, partition_num, label_number, y_train):
 
     for j in range(partition_num):
         np.random.shuffle(idx_batch[j])
-        net_dataidx_map[j] = idx_batch[j]
+        dataidx[j] = idx_batch[j]
     
-    return net_dataidx_map
+    return dataidx
 
 def partition_by_index(training_set, global_dataset, capable_miner_num, total_miner_num, data_index):
     x_train, y_train = training_set
