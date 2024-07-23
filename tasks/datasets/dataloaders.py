@@ -139,7 +139,7 @@ def femnist_loader(dataset_path: Path, node_num, global_ratio):
 
     # calculate the size of global data
     training_data_size = sum(train_data['num_samples'])
-    global_data_size = int(global_ratio * training_data_size / (node_num - global_ratio*node_num + global_ratio))
+    global_data_size = int(global_ratio * training_data_size)
     #print('number of global samples at each node:', global_data_size)
 
     # split global_data_size/node_num samples from each node to form the global data

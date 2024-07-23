@@ -90,7 +90,7 @@ def generate_global_dataset(training_set, global_ratio, partition_num, num_class
     '''sample a global dataset from the training set, make sure each class is included'''
     x_train, y_train = training_set
     training_set_size = y_train.shape[0]
-    global_dataset_size = int(global_ratio * training_set_size / (partition_num - global_ratio*partition_num + global_ratio))
+    global_dataset_size = int(global_ratio * training_set_size)
     x_train, y_train = shuffle(x_train, y_train)
     x_global = x_train[:global_dataset_size]
     y_global = y_train[:global_dataset_size]
