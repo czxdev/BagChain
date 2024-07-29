@@ -68,8 +68,7 @@ PREDICT_BATCH_SIZE = NNClassifier.PREDICT_BATCH_SIZE
 
 def datasetloader_preload(dataset, nn_params: dict = None):
     x_test, y_test = dataset
-    x_test_tensor = NNClassifier.preprocessing(x_test, **(nn_params or {}))
-    test_set = torch.utils.data.TensorDataset(x_test_tensor)
+    test_set = NNClassifier.preprocessing(x_test, None, **(nn_params or {}))
     test_loader = torch.utils.data.DataLoader(test_set,
                                             batch_size=PREDICT_BATCH_SIZE,
                                             shuffle=False)

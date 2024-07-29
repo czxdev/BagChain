@@ -1,8 +1,8 @@
 import torch
 from torch import nn
 from torch import optim
-import torch.nn.functional as F
 import torchvision.transforms as transforms
+from torchvision.datasets import VisionDataset
 from torch.cuda.amp import autocast, GradScaler
 import numpy as np
 from PIL import Image
@@ -17,6 +17,27 @@ def reclaim_vram():
     gc.collect()
     torch.cuda.empty_cache()
 
+class NumpyDataset(VisionDataset):
+    def __init__(self, x:np.ndarray, y:np.ndarray = None, transform = None):
+        super().__init__(None, None, transform=transform)
+        self.data = x
+        self.target = y
+        if len(self.data.shape) == 4:
+            self.img_mode = 'RGB'
+        elif len(self.data.shape) == 2:
+            self.img_mode = 'L'
+        else:
+            raise ValueError("Invalid data shape")
+    
+    def __len__(self):
+        return self.data.shape[0]
+    
+    def __getitem__(self, index:int):
+        if self.target is not None:
+            return self.transform(Image.fromarray(self.data[index], mode=self.img_mode)), self.target[index]
+        else:
+            return self.transform(Image.fromarray(self.data[index], mode=self.img_mode))
+
 class NNClassifier():
     '''NNClassifier for Cifar10'''
     TRAINING_BATCH_SIZE = 64
@@ -27,9 +48,8 @@ class NNClassifier():
     
     @staticmethod
     def preprocessing(x:np.ndarray, y:np.ndarray = None, *, input_channels = 3, image_shape = (32,32),
-                      mean = None, std = None, train = False, **kwargs) -> tuple[torch.Tensor, torch.Tensor]:
+                      mean = None, std = None, train = False, **kwargs) -> NumpyDataset:
         '''The default values here is for Cifar10 dataset, which has 3 channels and 32x32 images'''
-        images = []
         transform_sequence = [transforms.ToTensor(), 
                               transforms.Normalize(mean or [0.5]*input_channels, std or [0.5]*input_channels)]
         if train:
@@ -43,14 +63,8 @@ class NNClassifier():
             x_reshape = x.reshape(-1, input_channels, width, height).transpose((0,2,3,1))
         else:
             raise ValueError("The input_channels is not supported")
-        for i in range(x.shape[0]):
-            image_tensor = IMAGE_TRANSFORM(Image.fromarray(x_reshape[i]))
-            images.append(image_tensor)
-        x_tensor = torch.stack(images)
-        if y is None:
-            return x_tensor
-        y_tensor = torch.tensor(y, dtype=torch.int64)
-        return x_tensor, y_tensor
+        
+        return NumpyDataset(x_reshape, y, IMAGE_TRANSFORM)
     
     def __init__(self, nn_params: dict = None) -> None:
         try:
@@ -69,8 +83,7 @@ class NNClassifier():
         if isinstance(x, torch.utils.data.DataLoader):
             test_loader = x
         else:
-            x_tensor, _ = self.preprocessing(x, np.array([]), **self.nn_params)
-            dataset = torch.utils.data.TensorDataset(x_tensor)
+            dataset = self.preprocessing(x, None, **self.nn_params)
             test_loader = torch.utils.data.DataLoader(dataset,
                                                     batch_size=NNClassifier.PREDICT_BATCH_SIZE,
                                                     shuffle=False)
@@ -81,7 +94,7 @@ class NNClassifier():
         with torch.no_grad():
             for data in test_loader:
                 # withdraw a batch and predict
-                outputs = self.net(data[0].to(self.device))
+                outputs = self.net(data.to(self.device))
                 _, predict = outputs.max(1)
                 del outputs
                 predict_list.append(predict)
@@ -93,8 +106,7 @@ class NNClassifier():
         if isinstance(x, torch.utils.data.DataLoader):
             test_loader = x
         else:
-            x_tensor, _ = self.preprocessing(x, np.array([]), **self.nn_params)
-            dataset = torch.utils.data.TensorDataset(x_tensor)
+            dataset = self.preprocessing(x, None, **self.nn_params)
             test_loader = torch.utils.data.DataLoader(dataset,
                                                     batch_size=NNClassifier.PREDICT_BATCH_SIZE,
                                                     shuffle=False)
@@ -105,7 +117,7 @@ class NNClassifier():
         with torch.no_grad():
             for data in test_loader:
                 # withdraw a batch and predict
-                outputs = self.net(data[0].to(self.device))
+                outputs = self.net(data.to(self.device))
                 predict_prob_list.append(torch.nn.functional.softmax(outputs,dim=1))
                 del outputs
 
@@ -116,11 +128,10 @@ class NNClassifier():
             self.classes_, y_encoded = np.unique(y, return_inverse=True)
         else:
             y_encoded = np.searchsorted(self.classes_, y)
-        x_tensor_train, y_tensor_train = self.preprocessing(x, y_encoded, train=True, **self.nn_params)
-        training_dataset = torch.utils.data.TensorDataset(x_tensor_train, y_tensor_train)
+        training_dataset = self.preprocessing(x, y_encoded, train=True, **self.nn_params)
         training_loader = torch.utils.data.DataLoader(training_dataset, 
                                                       batch_size=NNClassifier.TRAINING_BATCH_SIZE,
-                                                      shuffle=False)
+                                                      shuffle=False, num_workers=4)
         self.train(training_loader,NNClassifier.EPOCH)
         return self
 
