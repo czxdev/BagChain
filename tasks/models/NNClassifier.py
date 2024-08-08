@@ -47,15 +47,11 @@ class NNClassifier():
     MIX_PRECISION = True
     
     @staticmethod
-    def preprocessing(x:np.ndarray, y:np.ndarray = None, *, input_channels = 3, image_shape = (32,32),
-                      mean = None, std = None, train = False, **kwargs) -> NumpyDataset:
+    def preprocessing(x:np.ndarray, y:np.ndarray = None, *, input_channels = 3, image_shape = (32,32), mean = None, std = None, **kwargs) -> NumpyDataset:
         '''The default values here is for Cifar10 dataset, which has 3 channels and 32x32 images'''
-        transform_sequence = [transforms.ToTensor(), 
-                              transforms.Normalize(mean or [0.5]*input_channels, std or [0.5]*input_channels)]
-        if train:
-            transform_sequence = [transforms.RandomCrop(32, padding=4),
-                                  transforms.RandomHorizontalFlip()] + transform_sequence
-        IMAGE_TRANSFORM = transforms.Compose(transform_sequence)
+        images = []
+        IMAGE_TRANSFORM = transforms.Compose([transforms.ToTensor(), 
+                                          transforms.Normalize(mean or [0.5]*input_channels, std or [0.5]*input_channels)])
         width, height = image_shape
         if input_channels == 1:
             x_reshape = x.reshape(-1, width, height)
@@ -128,7 +124,8 @@ class NNClassifier():
             self.classes_, y_encoded = np.unique(y, return_inverse=True)
         else:
             y_encoded = np.searchsorted(self.classes_, y)
-        training_dataset = self.preprocessing(x, y_encoded, train=True, **self.nn_params)
+        x_tensor_train, y_tensor_train = self.preprocessing(x, y_encoded, **self.nn_params)
+        training_dataset = torch.utils.data.TensorDataset(x_tensor_train, y_tensor_train)
         training_loader = torch.utils.data.DataLoader(training_dataset, 
                                                       batch_size=NNClassifier.TRAINING_BATCH_SIZE,
                                                       shuffle=False, num_workers=4)

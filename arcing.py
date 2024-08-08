@@ -88,6 +88,5 @@ def bagging(n_estimators, x, y, BaseClassifier):
         estimator = BaseClassifier()
         estimators.append(estimator)
         estimator.fit(x_resampled, y_resampled)
-        # estimator.fit(x, y)
 
     return estimators, None
