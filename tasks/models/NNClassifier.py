@@ -124,8 +124,7 @@ class NNClassifier():
             self.classes_, y_encoded = np.unique(y, return_inverse=True)
         else:
             y_encoded = np.searchsorted(self.classes_, y)
-        x_tensor_train, y_tensor_train = self.preprocessing(x, y_encoded, **self.nn_params)
-        training_dataset = torch.utils.data.TensorDataset(x_tensor_train, y_tensor_train)
+        training_dataset = self.preprocessing(x, y_encoded, **self.nn_params)
         training_loader = torch.utils.data.DataLoader(training_dataset, 
                                                       batch_size=NNClassifier.TRAINING_BATCH_SIZE,
                                                       shuffle=False, num_workers=4)
