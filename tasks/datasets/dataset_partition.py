@@ -38,6 +38,9 @@ def partition_label_distribution(beta, partition_num, label_number, y_train):
     N = y_train.shape[0]
     dataidx = [[] for _ in range(partition_num)]
 
+    if y_train.shape[0] == 0:
+        return dataidx
+
     while min_size < min_require_size:
         idx_batch = [[] for _ in range(partition_num)]
         for k in range(label_number):
