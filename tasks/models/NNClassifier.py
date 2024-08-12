@@ -24,7 +24,7 @@ class NumpyDataset(VisionDataset):
         self.target = y
         if len(self.data.shape) == 4:
             self.img_mode = 'RGB'
-        elif len(self.data.shape) == 2:
+        elif len(self.data.shape) == 2 or len(self.data.shape) == 3:
             self.img_mode = 'L'
         else:
             raise ValueError("Invalid data shape")
