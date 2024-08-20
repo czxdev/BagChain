@@ -24,8 +24,11 @@ class NumpyDataset(VisionDataset):
         self.target = y
         if len(self.data.shape) == 4:
             self.img_mode = 'RGB'
-        elif len(self.data.shape) == 2 or len(self.data.shape) == 3:
+        elif len(self.data.shape) == 2:
             self.img_mode = 'L'
+        elif len(self.data.shape) == 3 and self.data.dtype in [np.float64, np.float32]:
+            self.img_mode = 'F'
+            self.data = self.data.astype(np.float32) # Convert float number precision correctly
         else:
             raise ValueError("Invalid data shape")
     
