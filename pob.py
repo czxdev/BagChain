@@ -31,6 +31,23 @@ def find_task_by_id(block:Block, task_id:int) -> Task:
         return task
     return None
 
+def preblock_vote(miniblock_list:BlockList) -> Block:
+    '''从miniblock_list中找到被最多Block引用的Key Block\n
+    param:
+        miniblock_list miniblock列表 type:list
+    return:
+        pre_block 被最多Block引用的Key Block type:Block
+    '''
+    block_counter_dict = {}
+    block_hashmap = {}
+    for miniblock in miniblock_list:
+        block_counter_dict.setdefault(miniblock.blockhead.prehash, 0)
+        block_counter_dict[miniblock.blockhead.prehash] += 1
+        block_hashmap[miniblock.blockhead.prehash] = miniblock.last
+
+    pre_block_hash = max(block_counter_dict, key=block_counter_dict.get)
+    return block_hashmap[pre_block_hash]
+
 class PoB(Consensus):
     '''继承Consensus类，实现共识算法'''
     def __init__(self, miner_id:int):
@@ -241,10 +258,11 @@ class PoB(Consensus):
             if miniblock.calculate_blockhash() != miniblock_hash[index]:
                 return False
 
-        # 检验所有miniblock与block的一致性（prehash与task_id相同）
+        # 检验所有miniblock与block的一致性（task_id相同，prehash由preblock_vote的结果匹配）
+        if preblock_vote(miniblock_list).calculate_blockhash() != block.blockhead.prehash:
+            return False
         for miniblock in miniblock_list:
-            if miniblock.blockhead.prehash != block.blockhead.prehash or \
-            miniblock.blockextra.task_id != block.blockextra.task_id:
+            if miniblock.blockextra.task_id != block.blockextra.task_id:
                 return False
         test_set_metric = self.validate_evaluate_miniblock(miniblock_list,
                                                            current_task,
@@ -344,8 +362,9 @@ class PoB(Consensus):
             logger.error(f'ensemble metric {metric} fall below minimum_metric')
             return (None, False)
 
+        preblock = preblock_vote(valid_miniblock_list) # 通过preblock_vote决定Ensemble Block的前一区块
         miniblock_hash = [miniblock.calculate_blockhash() for miniblock in valid_miniblock_list]
-        blockhead = BlockHead(valid_miniblock_list[0].blockhead.prehash, None, time.time_ns(),
+        blockhead = BlockHead(preblock.calculate_blockhash(), None, time.time_ns(),
                               None, None, valid_miniblock_list[0].blockhead.height, miner)
 
         blockextra = Block.BlockExtra(id(current_task),
@@ -356,7 +375,7 @@ class PoB(Consensus):
                           blockhead, None, is_adversary, blockextra,
                           False, global_var.get_miniblock_size()) # Ensemble Block与miniblock具有相同大小
         new_block.blockhead.blockhash = new_block.calculate_blockhash() # 更新区块哈希信息
-        new_block.last = valid_miniblock_list[0].last
+        new_block.last = preblock
         return (new_block, True)
 
     def mining_consensus(self, ensemble_block_list:BlockList, miner, content, is_adversary, q):

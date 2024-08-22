@@ -149,7 +149,13 @@ class Miner(object):
                     outcome, mine_success = self.consensus.ensemble(
                         self.miniblock_storage, self.Miner_ID, self.isAdversary)
                 if mine_success:
-                    self.ensemble_block_storage.append(outcome)
+                    if not self.Blockchain.lastblock.isGenesis and prehash != outcome.blockhead.prehash:
+                        # 需要切换分叉
+                        for key_block in self.Blockchain.lastblock.last.next:
+                            if key_block.blockhead.blockhash == outcome.last.blockhead.blockhash:
+                                self.Blockchain.lastblock = key_block
+                                break
+                    self.ensemble_block_pending_list.append(outcome)
                     self.state = self.MinerState.WAITING_ENSEMBLE_BLOCK
         elif self.state is self.MinerState.WAITING_ENSEMBLE_BLOCK:
             if not self.dataset_published(prehash, taskid,
@@ -266,10 +272,13 @@ class Miner(object):
         new_list = []
         for miniblock in self.miniblock_pending_list:
             if miniblock.last in self.Blockchain:
-                if miniblock.last.blockhead.blockhash == \
-                self.Blockchain.lastblock.blockhead.blockhash and \
+                if miniblock.last.blockhead.height == \
+                    self.Blockchain.lastblock.blockhead.height and \
+                    miniblock.last.blockextra.task_id == \
+                    self.Blockchain.lastblock.blockextra.task_id and \
                     miniblock not in self.miniblock_storage:
-                    # 只有获胜Key Block后续的miniblock可以放入miniblock_storage
+                    # 修改前：只有获胜Key Block后续的miniblock可以放入miniblock_storage
+                    # 修改后：同一高度、同一任务的miniblock可以放入miniblock_storage
                     # 这些miniblock不会留在pending list
                     self.miniblock_storage.append(miniblock)
                     logger.info("%s moved from pending list to storage in Miner %d",
@@ -288,7 +297,7 @@ class Miner(object):
         new_list = []
         for ensemble_block in self.ensemble_block_pending_list:
             if ensemble_block.last in self.Blockchain:
-                if ensemble_block.last.blockhead.blockhash == \
+                if ensemble_block.blockhead.prehash == \
                 self.Blockchain.lastblock.blockhead.blockhash and \
                     ensemble_block not in self.ensemble_block_storage:
                     # 只有获胜Key Block后续的Ensemble Block可以放入ensemble_block_storage
