@@ -345,8 +345,8 @@ class PoB(Consensus):
             return (None, False)
 
         miniblock_hash = [miniblock.calculate_blockhash() for miniblock in valid_miniblock_list]
-        blockhead = BlockHead(miniblock_list[0].blockhead.prehash, None, time.time_ns(),
-                              None, None, miniblock_list[0].blockhead.height, miner)
+        blockhead = BlockHead(valid_miniblock_list[0].blockhead.prehash, None, time.time_ns(),
+                              None, None, valid_miniblock_list[0].blockhead.height, miner)
 
         blockextra = Block.BlockExtra(id(current_task),
                                       None, None,
@@ -356,7 +356,7 @@ class PoB(Consensus):
                           blockhead, None, is_adversary, blockextra,
                           False, global_var.get_miniblock_size()) # Ensemble Block与miniblock具有相同大小
         new_block.blockhead.blockhash = new_block.calculate_blockhash() # 更新区块哈希信息
-        new_block.last = miniblock_list[0].last
+        new_block.last = valid_miniblock_list[0].last
         return (new_block, True)
 
     def mining_consensus(self, ensemble_block_list:BlockList, miner, content, is_adversary, q):
