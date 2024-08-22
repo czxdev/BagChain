@@ -11,6 +11,7 @@ import time
 import math
 import random
 from typing import List
+from collections import defaultdict
 import numpy as np
 
 
@@ -490,6 +491,41 @@ class Environment(object):
             validation_metrics_on_global_dataset = evaluate_model(BaseModel, global_task.validation_set)
             result_collection.update({'test_metric_on_global_dataset': test_metrics_on_global_dataset,
                                       'validation_metric_on_global_dataset': validation_metrics_on_global_dataset})
+
+        generated_miniblocks_per_height = defaultdict(list)
+        valid_miniblocks_per_height = {}
+        for miniblock in self.global_miniblock_list:
+            generated_miniblocks_per_height[miniblock.blockhead.height].append(miniblock)
+        
+        for keyblock in iter(self.global_chain):
+            if keyblock.isGenesis:
+                continue
+            # find the ensemble blocks with the best metric
+            winning_ensemble_block_hashs = [k for k,v in keyblock.blockextra.validate_list.items() \
+                             if v == keyblock.blockextra.metric]
+            for ensemble_block in keyblock.blockextra.ensemble_block_list:
+                
+                if ensemble_block.blockhead.blockhash in winning_ensemble_block_hashs:
+                    winning_ensemble_block = ensemble_block
+                    break
+            valid_miniblocks_per_height[keyblock.blockhead.height] = winning_ensemble_block.blockextra.miniblock_list
+
+        average_generated_miniblocks_per_height = sum([len(generated_miniblocks_per_height[height]) for height in valid_miniblocks_per_height])/len(valid_miniblocks_per_height)
+        average_valid_miniblocks_per_height = sum([len(miniblocks) for miniblocks in valid_miniblocks_per_height.values()])/len(valid_miniblocks_per_height)
+
+        accuracy_upper_bound_for_all_generated_miniblocks = [] # First column: test set, second column: validation set
+        for height in valid_miniblocks_per_height:
+            miniblocks = generated_miniblocks_per_height[height]
+            test_accuracy = self.dummy_consensus.validate_evaluate_miniblock(miniblocks, global_var.get_global_task(), Task.DatasetType.TEST_SET)
+            validation_accuracy = self.dummy_consensus.validate_evaluate_miniblock(miniblocks, global_var.get_global_task(), Task.DatasetType.VALIDATION_SET)
+            accuracy_upper_bound_for_all_generated_miniblocks.append([test_accuracy, validation_accuracy])
+        
+        # average_accuracy_upper_bound_for_all_generated_miniblocks = [test_set_accuracy, validation_set_accuracy]
+        average_accuracy_upper_bound_for_all_generated_miniblocks = np.mean(accuracy_upper_bound_for_all_generated_miniblocks, axis=0)
+
+        result_collection.update({'average_generated_miniblocks_per_height': average_generated_miniblocks_per_height,
+                                  'average_valid_miniblocks_per_height': average_valid_miniblocks_per_height,
+                                  'average_accuracy_upper_bound_for_all_generated_miniblocks': average_accuracy_upper_bound_for_all_generated_miniblocks.tolist()})
 
         return result_collection
 

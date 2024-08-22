@@ -230,6 +230,15 @@ class Chain(object):
             q_o.pop(0)
         return copy_chain
     
+    def iter_longest_chain(self):
+        '''从最新的区块开始迭代'''
+        if not self.lastblock:
+            return
+        block = self.lastblock
+        while block:
+            yield block
+            block = block.last
+
     def create_genesis_block(self, **blockextra_dict):
         prehash = 0
         time = 0
