@@ -526,6 +526,11 @@ class Environment(object):
         result_collection.update({'average_generated_miniblocks_per_height': average_generated_miniblocks_per_height,
                                   'average_valid_miniblocks_per_height': average_valid_miniblocks_per_height,
                                   'average_accuracy_upper_bound_for_all_generated_miniblocks': average_accuracy_upper_bound_for_all_generated_miniblocks.tolist()})
+        import json
+        # Make chain_stats['common_prefix_pdf'] serializable
+        result_collection['chain_stats'].update({'common_prefix_pdf': result_collection['chain_stats']['common_prefix_pdf'].tolist()})
+        with open(RESULT_PATH / 'result_collection.json', 'w') as f:
+            json.dump(result_collection, f, indent=4)
 
         return result_collection
 
