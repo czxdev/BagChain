@@ -13,6 +13,7 @@ import random
 from typing import List
 from collections import defaultdict
 import numpy as np
+import torch
 
 
 import global_var
@@ -44,8 +45,10 @@ def stash_models(miniblock:Block):
         isinstance(miniblock.blockextra.model[0], NNClassifier):
         for model in miniblock.blockextra.model:
             model.net.cpu()
+            model.device = torch.device('cpu')
     elif isinstance(miniblock.blockextra.model, NNClassifier):
         miniblock.blockextra.model.net.cpu()
+        miniblock.blockextra.model.device = torch.device('cpu')
 
 class Environment(object):
 
