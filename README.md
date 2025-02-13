@@ -1,30 +1,31 @@
- # 简介
- ChainXim是一款由XinLab开发的区块链仿真器，用于对不同网络、不同共识协议下的区块链进行仿真验证，可以通过设计网络攻击者辅助评估区块链的安全性能。目前仿真器还处于内部测试阶段。
+# BagChain
 
-# 安装 
- **Dependency**
- - python >= 3.7
- - graphviz
- - scipy
- - matplotlib > 3.5.1
- - networkx > 2.8.7
- - pandas
+Source code for the simulations in the paper "[BagChain: A Dual-functional Blockchain Leveraging Bagging-based Distributed Learning](https://arxiv.org/abs/2502.11464)". This project is built upon a previous version of [ChainXim](https://github.com/XinLab-SEU/ChainXim).
 
-# 简单运行
-在test.py中调整仿真参数
-```shell
-cd <project_directory>
-python test.py
-```
-将会在Results文件夹生成仿真区块数据，包括每个矿工的区块链记录、区块链可视化矢量图、区块链攻击者日志、路由历史、网络矢量图、区块传播示意图。
+## Prerequisites 
 
-# 文件结构
-- test.py: 仿真器的主程序
-- Environment.py: 环境类与相关函数
-- Miner.py: 矿工类与相关函数
-- chain.py: 包括块头、区块、区块链的类与相关函数
-- consensus.py: 抽象共识类、PoW类与相关函数
-- Network.py: 网络类，包括网络拓扑与传播相关的函数
-- Attack.py: 攻击者类与相关函数
-- functions.py: 包含计算哈希（SHA256）在内的一些函数
-- external.py: 一些外部函数
+### Environment
+
+1. Install Python 3.9 or higher.
+
+2. Install [Graphviz](https://graphviz.org/download/) and add the directory containing the `dot` executable to the PATH environment variable.
+
+3. Install dependencies: `pip install scikit-learn torch matplotlib networkx scipy graphviz pandas numpy urllib3`
+
+### Datasets
+
+Download the datasets from [google drive](https://drive.google.com/drive/folders/1nfQQtPh6Hb9ZyP3CGJeWDKySDU6NwO7b?usp=drive_link) and place them in the `tasks/datasets/` directory.
+
+## Simulation
+
+Run any of the ython scripts starting with 'experiment' to start a simulation. These scripts can generate the simulation results shown in the figures in the simulation section.
+
+| Figure  | Script                                                     |
+| ------- | ---------------------------------------------------------- |
+| Fig. 7  | experiment_global_base_iid.py                              |
+| Fig. 8  | experiment_global_base_niid.py                             |
+| Fig. 9  | experiment_imbalance.py                                    |
+| Fig. 10 | experiment_sync_random.py                                  |
+| Fig. 11 | experiment_network_delay.py (in branch main)               |
+| Fig. 12 | experiment_network_delay.py (in branch cross-fork-sharing) |
+
